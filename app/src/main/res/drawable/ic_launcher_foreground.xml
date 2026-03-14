@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.8"
+        android:scaleY="0.8"
+        android:translateX="10.8"
+        android:translateY="10.8">
+        <!-- Checkmark icon -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M40,64L24,48l4.8,-4.8L40,54.4l27.2,-27.2L72,32L40,64z" />
+        <!-- Task list lines -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M32,24h40v4H32z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M32,36h40v4H32z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M32,72h24v4H32z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M32,84h24v4H32z" />
+    </group>
+</vector>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Naggy</string>
+
+    <!-- Google Sign-In -->
+    <string name="default_web_client_id">496747527328-avdabf38lnmep600jcpagjlmqsj9g0sm.apps.googleusercontent.com</string>
+
+    <!-- Task List Screen -->
+    <string name="task_list_title">Naggy</string>
+    <string name="add_task">Add Task</string>
+    <string name="no_tasks">No tasks yet. Tap + to add one!</string>
+    <string name="mark_complete">Mark Complete</string>
+    <string name="delete_task">Delete</string>
+
+    <!-- Task Status -->
+    <string name="status_upcoming">Upcoming</string>
+    <string name="status_overdue">Overdue</string>
+    <string name="status_completed">Completed</string>
+
+    <!-- Add/Edit Task Screen -->
+    <string name="add_task_title">Add Task</string>
+    <string name="edit_task_title">Edit Task</string>
+    <string name="task_title">Task Title</string>
+    <string name="task_title_hint">Enter task title</string>
+    <string name="task_description">Description</string>
+    <string name="task_description_hint">Enter description (optional)</string>
+    <string name="deadline_date">Deadline Date</string>
+    <string name="deadline_time">Deadline Time</string>
+    <string name="reminder_lead_time">Remind me before</string>
+    <string name="reminder_time">Reminder time of day</string>
+    <string name="save_task">Save</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Lead Time Options -->
+    <string name="lead_time_15_min">15 minutes before</string>
+    <string name="lead_time_30_min">30 minutes before</string>
+    <string name="lead_time_1_hour">1 hour before</string>
+    <string name="lead_time_2_hours">2 hours before</string>
+    <string name="lead_time_1_day">1 day before</string>
+    <string name="lead_time_2_days">2 days before</string>
+    <string name="lead_time_1_week">1 week before</string>
+
+    <!-- Alarm Screen -->
+    <string name="reminder_title">Task Reminder</string>
+    <string name="due_at">Due at: %1$s</string>
+    <string name="overdue_by">Overdue by: %1$s</string>
+    <string name="snooze">Snooze</string>
+    <string name="mark_done">Mark Done</string>
+    <string name="dismiss">Dismiss</string>
+
+    <!-- Snooze Options -->
+    <string name="snooze_5_min">5 minutes</string>
+    <string name="snooze_10_min">10 minutes</string>
+    <string name="snooze_15_min">15 minutes</string>
+    <string name="snooze_30_min">30 minutes</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Task Reminders</string>
+    <string name="notification_channel_description">Notifications for task reminders</string>
+    <string name="notification_title">Reminder: %1$s</string>
+    <string name="notification_text">Due: %1$s</string>
+
+    <!-- Validation -->
+    <string name="error_title_required">Title is required</string>
+    <string name="error_invalid_date">Please select a valid date</string>
+    <string name="error_past_deadline">Deadline must be in the future</string>
+
+    <!-- Permissions -->
+    <string name="permission_alarm_title">Exact Alarms Permission</string>
+    <string name="permission_alarm_message">This app needs permission to schedule exact alarms for reminders. Please enable it in settings.</string>
+    <string name="permission_notification_title">Notification Permission</string>
+    <string name="permission_notification_message">This app needs permission to show notifications for task reminders.</string>
+    <string name="open_settings">Open Settings</string>
+
+    <!-- Date/Time -->
+    <string name="select_date">Select Date</string>
+    <string name="select_time">Select Time</string>
+    <string name="today">Today</string>
+    <string name="tomorrow">Tomorrow</string>
+</resources>
