@@ -90,8 +90,12 @@ dependencies {
 
     // Google Auth & Drive
     implementation(libs.play.services.auth)
-    implementation(libs.google.api.client.android)
-    implementation(libs.google.api.services.drive)
-    implementation(libs.google.http.client.gson)
-    implementation(libs.google.http.client.android)
+    implementation(libs.googleAuthApi)
+    implementation(libs.googleDriveApi)
+    implementation(libs.googleHttpGson)
+    implementation(libs.googleHttpAndroid)
+
+    // Glance (Widgets)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
 }
