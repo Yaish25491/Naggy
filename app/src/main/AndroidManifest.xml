@@ -13,9 +13,7 @@
 
     <application
         android:name=".TodoApplication"
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -46,6 +44,19 @@
             android:name=".alarm.AlarmReceiver"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- Task Widget -->
+        <receiver
+            android:name=".widget.TaskWidgetReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/task_widget_info" />
+        </receiver>
 
     </application>
 

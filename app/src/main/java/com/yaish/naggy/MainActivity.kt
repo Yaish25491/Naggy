@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import androidx.sqlite.db.SimpleSQLiteQuery
 import com.yaish.naggy.data.local.TaskDatabase
 import com.yaish.naggy.data.repository.DriveServiceHelper
 import com.yaish.naggy.data.repository.SettingsRepository
@@ -39,8 +40,10 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.*
 import javax.inject.Inject
 import kotlin.system.exitProcess
@@ -53,6 +56,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+    
+    @Inject
+    lateinit var database: TaskDatabase
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -84,7 +90,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         Log.e(TAG, "Sign in launcher failed with result code: ${result.resultCode}")
                         val message = when(result.resultCode) {
-                            Activity.RESULT_CANCELED -> "Sign in canceled (Code 0). Check internet or SHA-1 configuration."
+                            Activity.RESULT_CANCELED -> "Sign in canceled. Check internet or console config."
                             else -> "Sign in failed. Result code: ${result.resultCode}"
                         }
                         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -101,20 +107,19 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     
-                    // Check first run and login
-                    val isFirstRun = settingsRepository.isFirstRun.first()
+                    // Check login status
                     val account = GoogleSignIn.getLastSignedInAccount(context)
-                    
                     if (account != null) {
-                        Log.d(TAG, "Account found on start: ${account.email}")
-                        // Ensure settings repository is synced with the account found
                         settingsRepository.saveUserData(
                             name = account.displayName ?: "User",
                             email = account.email ?: ""
                         )
                         initializeDriveService(account)
-                    } else if (isFirstRun) {
-                        showLoginPrompt = true
+                    } else {
+                        val isFirstRun = settingsRepository.isFirstRun.first()
+                        if (isFirstRun) {
+                            showLoginPrompt = true
+                        }
                     }
                 }
 
@@ -177,7 +182,6 @@ class MainActivity : ComponentActivity() {
         val task = GoogleSignIn.getSignedInAccountFromIntent(data)
         try {
             val account = task.getResult(ApiException::class.java)
-            Log.d(TAG, "Sign in successful: ${account.email}")
             lifecycleScope.launch {
                 settingsRepository.setFirstRun(false)
                 settingsRepository.saveUserData(
@@ -188,16 +192,8 @@ class MainActivity : ComponentActivity() {
             initializeDriveService(account)
             Toast.makeText(this, "Welcome, ${account.displayName}!", Toast.LENGTH_SHORT).show()
         } catch (e: ApiException) {
-            Log.e(TAG, "Sign in failed with status code: ${e.statusCode}", e)
-            val errorMessage = when (e.statusCode) {
-                7 -> "Network error. Please check your internet connection."
-                10 -> "Developer error (Code 10). Ensure SHA-1 is added to the ANDROID Client ID in Google Cloud Console."
-                12500 -> "Sign in failed (Internal error 12500)."
-                12501 -> "Sign in canceled by user."
-                12502 -> "Sign in in progress..."
-                else -> "Login Failed: Status code ${e.statusCode}. Check Google Cloud Console configuration."
-            }
-            Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
+            Log.e(TAG, "Sign in failed: ${e.statusCode}")
+            Toast.makeText(this, "Login Failed (Code ${e.statusCode})", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -216,47 +212,68 @@ class MainActivity : ComponentActivity() {
             .build()
 
         driveServiceHelper = DriveServiceHelper(googleDriveService)
-        Log.d(TAG, "Drive service initialized")
     }
 
     private fun backupDatabase() {
         if (driveServiceHelper == null) {
-            Log.e(TAG, "Drive service not initialized")
-            Toast.makeText(this, "Please sign in to enable backup", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Please sign in to backup", Toast.LENGTH_SHORT).show()
             return
         }
         
-        Toast.makeText(this, "Starting backup...", Toast.LENGTH_SHORT).show()
-        val dbPath = getDatabasePath(TaskDatabase.DATABASE_NAME).absolutePath
-        driveServiceHelper?.uploadFile(dbPath, "todo_backup.db")
-            ?.addOnSuccessListener { 
-                Log.d(TAG, "Backup successful")
-                Toast.makeText(this, "Backup successful!", Toast.LENGTH_SHORT).show()
-                lifecycleScope.launch {
-                    settingsRepository.setLastBackupTime(System.currentTimeMillis())
+        lifecycleScope.launch {
+            try {
+                Toast.makeText(this@MainActivity, "Preparing backup...", Toast.LENGTH_SHORT).show()
+                
+                // Force Room to flush WAL to DB file
+                withContext(Dispatchers.IO) {
+                    val cursor = database.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)")
+                    cursor.moveToFirst()
+                    cursor.close()
                 }
+
+                val dbPath = getDatabasePath(TaskDatabase.DATABASE_NAME).absolutePath
+                driveServiceHelper?.uploadFile(dbPath, "todo_backup.db")
+                    ?.addOnSuccessListener { 
+                        Toast.makeText(this@MainActivity, "Backup uploaded successfully!", Toast.LENGTH_SHORT).show()
+                        lifecycleScope.launch {
+                            settingsRepository.setLastBackupTime(System.currentTimeMillis())
+                        }
+                    }
+                    ?.addOnFailureListener { 
+                        Toast.makeText(this@MainActivity, "Upload failed: ${it.message}", Toast.LENGTH_LONG).show()
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Backup failed", e)
+                Toast.makeText(this@MainActivity, "Backup failed", Toast.LENGTH_SHORT).show()
             }
-            ?.addOnFailureListener { 
-                Log.e(TAG, "Backup failed", it)
-                Toast.makeText(this, "Backup failed: ${it.message}", Toast.LENGTH_LONG).show()
-            }
+        }
     }
 
     private fun restoreDatabase() {
         if (driveServiceHelper == null) {
-            Log.e(TAG, "Drive service not initialized")
-            Toast.makeText(this, "Please sign in to enable restore", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Please sign in to restore", Toast.LENGTH_SHORT).show()
             return
         }
         
-        Toast.makeText(this, "Restoring data...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Downloading backup...", Toast.LENGTH_SHORT).show()
         val dbPath = getDatabasePath(TaskDatabase.DATABASE_NAME).absolutePath
+        
+        // Close the database to release file locks before overwriting it
+        database.close()
+        
         driveServiceHelper?.downloadFile("todo_backup.db", dbPath)
             ?.addOnSuccessListener { 
-                Log.d(TAG, "Restore successful")
-                Toast.makeText(this, "Restore successful! Restarting...", Toast.LENGTH_LONG).show()
+                try {
+                    // Delete WAL and SHM files to prevent Room from corrupting the restored DB
+                    java.io.File("$dbPath-wal").delete()
+                    java.io.File("$dbPath-shm").delete()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error deleting WAL files", e)
+                }
+
+                Toast.makeText(this, "Data restored! Restarting Naggy...", Toast.LENGTH_LONG).show()
                 
-                // Hard restart of the app
+                // Hard restart
                 val restartIntent = Intent(this, MainActivity::class.java)
                 val pendingIntent = PendingIntent.getActivity(
                     this, 0, restartIntent, PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -266,7 +283,6 @@ class MainActivity : ComponentActivity() {
                 exitProcess(0)
             }
             ?.addOnFailureListener { 
-                Log.e(TAG, "Restore failed", it)
                 Toast.makeText(this, "Restore failed: ${it.message}", Toast.LENGTH_LONG).show()
             }
     }
@@ -280,7 +296,7 @@ fun AlarmPermissionDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Exact Alarms Permission") },
-        text = { Text("This app needs permission to schedule exact alarms for reminders. Please enable it in settings.") },
+        text = { Text("Naggy needs permission to schedule exact alarms for reminders.") },
         confirmButton = {
             TextButton(onClick = onOpenSettings) {
                 Text("Open Settings")
