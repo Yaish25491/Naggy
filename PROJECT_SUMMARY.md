@@ -46,7 +46,7 @@ to-do-app/
         │   └── drawable/
         │       └── ic_notification.xml  # Notification icon
         │
-        └── 📁 java/com/example/todoapp/
+        └── 📁 java/com/yaish/naggy/
             ├── 📄 MainActivity.kt           # Main entry point
             ├── 📄 TodoApplication.kt        # Application class
             │

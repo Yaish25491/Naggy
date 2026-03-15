@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.todoapp"
+    namespace = "com.yaish.naggy"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.todoapp"
+        applicationId = "com.yaish.naggy"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

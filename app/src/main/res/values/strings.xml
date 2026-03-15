@@ -3,7 +3,7 @@
     <string name="app_name">Naggy</string>
 
     <!-- Google Sign-In -->
-    <string name="default_web_client_id">496747527328-avdabf38lnmep600jcpagjlmqsj9g0sm.apps.googleusercontent.com</string>
+    <string name="default_web_client_id">496747527328-2th58alc4nsdgn7v17ocejvppsi540v4.apps.googleusercontent.com</string>
 
     <!-- Task List Screen -->
     <string name="task_list_title">Naggy</string>
