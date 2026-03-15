@@ -52,4 +52,16 @@ class DriveServiceHelper(private val driveService: Drive) {
             null
         }
     }
+
+    fun getBackupModifiedTime(driveFileName: String): Task<Long?> {
+        return Tasks.call(executor) {
+            val result = driveService.files().list()
+                .setSpaces("appDataFolder")
+                .setFields("files(id, name, modifiedTime)")
+                .execute()
+
+            val driveFile = result.files.find { it.name == driveFileName }
+            driveFile?.modifiedTime?.value
+        }
+    }
 }

@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
             TodoAppTheme {
                 var showAlarmPermissionDialog by remember { mutableStateOf(false) }
                 var showLoginPrompt by remember { mutableStateOf(false) }
+                var showRestorePrompt by remember { mutableStateOf(false) }
                 val context = LocalContext.current
 
                 val googleSignInLauncher = rememberLauncherForActivityResult(
@@ -123,6 +124,23 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                LaunchedEffect(driveServiceHelper) {
+                    driveServiceHelper?.let { helper ->
+                        helper.getBackupModifiedTime("todo_backup.db")
+                            .addOnSuccessListener { remoteTime ->
+                                if (remoteTime != null) {
+                                    val dbFile = java.io.File(getDatabasePath(TaskDatabase.DATABASE_NAME).absolutePath)
+                                    val localTime = if (dbFile.exists()) dbFile.lastModified() else 0L
+                                    
+                                    // If remote is newer by at least 1 minute (avoids timezone/skew issues)
+                                    if (remoteTime > localTime + 60_000L) {
+                                        showRestorePrompt = true
+                                    }
+                                }
+                            }
+                    }
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -132,6 +150,27 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         onBackup = { backupDatabase() },
                         onRestore = { restoreDatabase() }
+                    )
+                }
+
+                if (showRestorePrompt) {
+                    AlertDialog(
+                        onDismissRequest = { showRestorePrompt = false },
+                        title = { Text("Backup Found") },
+                        text = { Text("A newer backup was found on your Google Drive. Would you like to restore it now?") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showRestorePrompt = false
+                                restoreDatabase()
+                            }) {
+                                Text("Restore")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showRestorePrompt = false }) {
+                                Text("Skip")
+                            }
+                        }
                     )
                 }
 
