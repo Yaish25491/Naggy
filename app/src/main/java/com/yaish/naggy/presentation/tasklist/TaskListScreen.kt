@@ -1,7 +1,10 @@
 package com.yaish.naggy.presentation.tasklist
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -210,7 +213,6 @@ fun TaskListScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Define the order of categories to show
                     val categoriesToShow = listOf(
                         TaskCategory.OVERDUE,
                         TaskCategory.TODAY,
@@ -257,6 +259,7 @@ fun TaskItem(
     onDelete: () -> Unit,
     onEdit: () -> Unit
 ) {
+    var isExpanded by remember { mutableStateOf(false) }
     val status = task.getStatus()
     val statusColor = when (status) {
         TaskStatus.UPCOMING -> Color(0xFF4CAF50)
@@ -271,111 +274,156 @@ fun TaskItem(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize()
+            .clickable { isExpanded = !isExpanded },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Completion checkbox
-            IconButton(
-                onClick = onToggleComplete,
-                modifier = Modifier.size(32.dp)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = if (task.isCompleted) {
-                        Icons.Filled.CheckCircle
-                    } else {
-                        Icons.Outlined.Circle
+                // Completion checkbox
+                IconButton(
+                    onClick = { 
+                        onToggleComplete()
                     },
-                    contentDescription = stringResource(R.string.mark_complete),
-                    tint = if (task.isCompleted) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (task.isCompleted) {
+                            Icons.Filled.CheckCircle
+                        } else {
+                            Icons.Outlined.Circle
+                        },
+                        contentDescription = stringResource(R.string.mark_complete),
+                        tint = if (task.isCompleted) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Task summary details
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = task.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = if (task.isCompleted) {
+                            TextDecoration.LineThrough
+                        } else {
+                            null
+                        }
+                    )
+
+                    Text(
+                        text = task.getFormattedDeadline(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Status badge
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = statusColor.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Task details
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    textDecoration = if (task.isCompleted) {
-                        TextDecoration.LineThrough
-                    } else {
-                        null
-                    }
-                )
-
+            // Countdown display at the bottom of the summary
+            if (!task.isCompleted) {
                 Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = task.getFormattedDeadline(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
                 Text(
                     text = task.getTimeUntilDeadline(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (status == TaskStatus.OVERDUE) {
-                        Color(0xFFF44336)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (status == TaskStatus.OVERDUE) MaterialTheme.colorScheme.error 
+                            else MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(start = 44.dp) // Align with text after checkbox
+                )
+            }
+
+            // Expanded content
+            AnimatedVisibility(visible = isExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
+                    if (task.description.isNotBlank()) {
+                        Text(
+                            text = "Description:",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = task.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                )
-            }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Edit button
-            IconButton(onClick = onEdit) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                )
-            }
-
-            // Delete button
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Status badge
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = statusColor.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(16.dp)
+                    Text(
+                        text = "Reminder details:",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor,
-                    fontWeight = FontWeight.Bold
-                )
+                    Text(
+                        text = "Notifies ${task.reminderLeadTimeMinutes / 60}h ${task.reminderLeadTimeMinutes % 60}m before, at ${task.reminderTimeOfDay}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        // Edit button
+                        TextButton(onClick = onEdit) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Edit")
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Delete button
+                        TextButton(
+                            onClick = onDelete,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Delete")
+                        }
+                    }
+                }
             }
         }
     }
