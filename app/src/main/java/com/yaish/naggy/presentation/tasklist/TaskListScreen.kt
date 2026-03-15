@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
@@ -42,11 +43,12 @@ import java.util.Locale
 fun TaskListScreen(
     onAddTask: () -> Unit,
     onEditTask: (Long) -> Unit,
+    onCalendarClick: () -> Unit,
     onBackup: () -> Unit = {},
     onRestore: () -> Unit = {},
     viewModel: TaskListViewModel = hiltViewModel()
 ) {
-    val tasks by viewModel.tasks.collectAsState()
+    val categorizedTasks by viewModel.categorizedTasks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val lastBackupTime by viewModel.lastBackupTime.collectAsState()
     val userData by viewModel.userData.collectAsState()
@@ -107,6 +109,18 @@ fun TaskListScreen(
                     }
                     Text(text = "Last auto backup: $formattedTime", style = MaterialTheme.typography.bodyMedium)
 
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    NavigationDrawerItem(
+                        label = { Text(stringResource(R.string.calendar_view)) },
+                        selected = false,
+                        onClick = {
+                            onCalendarClick()
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) }
+                    )
+
                     Spacer(modifier = Modifier.weight(1f))
 
                     Button(
@@ -166,7 +180,7 @@ fun TaskListScreen(
                 }
             }
         ) { paddingValues ->
-            if (isLoading && tasks.isEmpty()) {
+            if (isLoading && categorizedTasks.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -175,7 +189,7 @@ fun TaskListScreen(
                 ) {
                     CircularProgressIndicator()
                 }
-            } else if (tasks.isEmpty()) {
+            } else if (categorizedTasks.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -196,13 +210,39 @@ fun TaskListScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(tasks, key = { it.id }) { task ->
-                        TaskItem(
-                            task = task,
-                            onToggleComplete = { viewModel.toggleTaskCompletion(task.id, task.isCompleted) },
-                            onDelete = { viewModel.deleteTask(task.id) },
-                            onEdit = { onEditTask(task.id) }
-                        )
+                    // Define the order of categories to show
+                    val categoriesToShow = listOf(
+                        TaskCategory.OVERDUE,
+                        TaskCategory.TODAY,
+                        TaskCategory.THIS_WEEK,
+                        TaskCategory.THIS_MONTH,
+                        TaskCategory.LATER,
+                        TaskCategory.COMPLETED
+                    )
+
+                    categoriesToShow.forEach { category ->
+                        val tasksInCategory = categorizedTasks[category] ?: emptyList()
+                        if (tasksInCategory.isNotEmpty()) {
+                            item(key = category.name) {
+                                Text(
+                                    text = category.displayName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (category == TaskCategory.OVERDUE) MaterialTheme.colorScheme.error 
+                                            else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            }
+                            
+                            items(tasksInCategory, key = { it.id }) { task ->
+                                TaskItem(
+                                    task = task,
+                                    onToggleComplete = { viewModel.toggleTaskCompletion(task.id, task.isCompleted) },
+                                    onDelete = { viewModel.deleteTask(task.id) },
+                                    onEdit = { onEditTask(task.id) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -334,7 +374,7 @@ fun TaskItem(
                     text = statusText,
                     style = MaterialTheme.typography.labelSmall,
                     color = statusColor,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

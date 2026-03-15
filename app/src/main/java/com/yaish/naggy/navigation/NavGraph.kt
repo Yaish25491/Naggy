@@ -7,10 +7,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.yaish.naggy.presentation.addedittask.AddEditTaskScreen
+import com.yaish.naggy.presentation.calendar.CalendarScreen
 import com.yaish.naggy.presentation.tasklist.TaskListScreen
 
 sealed class Screen(val route: String) {
     object TaskList : Screen("task_list")
+    object Calendar : Screen("calendar")
     object AddEditTask : Screen("add_edit_task?taskId={taskId}") {
         fun createRoute(taskId: Long? = null) = if (taskId != null) "add_edit_task?taskId=$taskId" else "add_edit_task"
     }
@@ -34,8 +36,22 @@ fun NavGraph(
                 onEditTask = { taskId ->
                     navController.navigate(Screen.AddEditTask.createRoute(taskId))
                 },
+                onCalendarClick = {
+                    navController.navigate(Screen.Calendar.route)
+                },
                 onBackup = onBackup,
                 onRestore = onRestore
+            )
+        }
+
+        composable(Screen.Calendar.route) {
+            CalendarScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onEditTask = { taskId ->
+                    navController.navigate(Screen.AddEditTask.createRoute(taskId))
+                }
             )
         }
 

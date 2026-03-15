@@ -13,8 +13,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 @HiltViewModel
@@ -25,11 +30,18 @@ class TaskListViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
-    val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    val categorizedTasks: StateFlow<Map<TaskCategory, List<Task>>> = taskRepository.getAllTasks()
+        .combine(_isLoading) { tasks, loading ->
+            if (loading && tasks.isEmpty()) emptyMap()
+            else categorizeTasks(tasks)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    // Keep the original tasks flow if needed, but categorizedTasks is better for the UI
+    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
+    val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
 
     val lastBackupTime: StateFlow<Long> = settingsRepository.lastBackupTime
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
@@ -53,6 +65,29 @@ class TaskListViewModel @Inject constructor(
         }
     }
 
+    private fun categorizeTasks(tasks: List<Task>): Map<TaskCategory, List<Task>> {
+        val today = LocalDate.now()
+        val startOfNextWeek = today.plusDays(7)
+        val startOfNextMonth = today.plusMonths(1)
+
+        val sortedTasks = tasks.sortedBy { it.deadlineTimestamp }
+        
+        return sortedTasks.groupBy { task ->
+            val taskDate = Instant.ofEpochMilli(task.deadlineTimestamp)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+
+            when {
+                task.isCompleted -> TaskCategory.COMPLETED
+                taskDate.isBefore(today) -> TaskCategory.OVERDUE
+                taskDate == today -> TaskCategory.TODAY
+                taskDate.isBefore(startOfNextWeek) -> TaskCategory.THIS_WEEK
+                taskDate.isBefore(startOfNextMonth) -> TaskCategory.THIS_MONTH
+                else -> TaskCategory.LATER
+            }
+        }
+    }
+
     fun toggleTaskCompletion(taskId: Long, isCompleted: Boolean) {
         viewModelScope.launch {
             if (isCompleted) {
@@ -70,4 +105,13 @@ class TaskListViewModel @Inject constructor(
             onTriggerBackup?.invoke()
         }
     }
+}
+
+enum class TaskCategory(val displayName: String) {
+    OVERDUE("Overdue"),
+    TODAY("Today"),
+    THIS_WEEK("This Week"),
+    THIS_MONTH("This Month"),
+    LATER("Later"),
+    COMPLETED("Completed")
 }

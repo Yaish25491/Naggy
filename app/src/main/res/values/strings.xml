@@ -11,6 +11,7 @@
     <string name="no_tasks">No tasks yet. Tap + to add one!</string>
     <string name="mark_complete">Mark Complete</string>
     <string name="delete_task">Delete</string>
+    <string name="calendar_view">Calendar</string>
 
     <!-- Task Status -->
     <string name="status_upcoming">Upcoming</string>
