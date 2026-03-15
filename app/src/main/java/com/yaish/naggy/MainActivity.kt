@@ -77,7 +77,10 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            TodoAppTheme {
+            val isDarkThemePref by settingsRepository.isDarkTheme.collectAsState(initial = null)
+            val isDarkTheme = isDarkThemePref ?: androidx.compose.foundation.isSystemInDarkTheme()
+
+            TodoAppTheme(darkTheme = isDarkTheme) {
                 var showAlarmPermissionDialog by remember { mutableStateOf(false) }
                 var showLoginPrompt by remember { mutableStateOf(false) }
                 var showRestorePrompt by remember { mutableStateOf(false) }

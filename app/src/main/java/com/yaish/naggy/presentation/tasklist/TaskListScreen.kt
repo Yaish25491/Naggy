@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Circle
@@ -55,6 +57,7 @@ fun TaskListScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val lastBackupTime by viewModel.lastBackupTime.collectAsState()
     val userData by viewModel.userData.collectAsState()
+    val isDarkTheme by viewModel.isDarkTheme.collectAsState()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -122,6 +125,24 @@ fun TaskListScreen(
                             scope.launch { drawerState.close() }
                         },
                         icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val isDark = isDarkTheme ?: androidx.compose.foundation.isSystemInDarkTheme()
+                    NavigationDrawerItem(
+                        label = { Text(if (isDark) "Light Mode" else "Dark Mode") },
+                        selected = false,
+                        onClick = {
+                            viewModel.setDarkTheme(!isDark)
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { 
+                            Icon(
+                                imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode, 
+                                contentDescription = null
+                            ) 
+                        }
                     )
 
                     Spacer(modifier = Modifier.weight(1f))

@@ -25,6 +25,11 @@ class SettingsRepository @Inject constructor(
         val LAST_BACKUP_TIME = longPreferencesKey("last_backup_time")
         val USER_NAME = stringPreferencesKey("user_name")
         val USER_EMAIL = stringPreferencesKey("user_email")
+        val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
+    }
+
+    val isDarkTheme: Flow<Boolean?> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.IS_DARK_THEME]
     }
 
     val isFirstRun: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -57,6 +62,16 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.USER_NAME] = name
             preferences[PreferencesKeys.USER_EMAIL] = email
+        }
+    }
+
+    suspend fun setDarkTheme(isDark: Boolean?) {
+        context.dataStore.edit { preferences ->
+            if (isDark == null) {
+                preferences.remove(PreferencesKeys.IS_DARK_THEME)
+            } else {
+                preferences[PreferencesKeys.IS_DARK_THEME] = isDark
+            }
         }
     }
 }

@@ -18,10 +18,15 @@ import com.yaish.naggy.R
 import com.yaish.naggy.alarm.AlarmScheduler
 import com.yaish.naggy.domain.model.Task
 import com.yaish.naggy.ui.theme.TodoAppTheme
+import com.yaish.naggy.data.repository.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class AlarmActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
 
     private val viewModel: AlarmViewModel by viewModels()
 
@@ -37,7 +42,10 @@ class AlarmActivity : ComponentActivity() {
         viewModel.loadTask(taskId)
 
         setContent {
-            TodoAppTheme {
+            val isDarkThemePref by settingsRepository.isDarkTheme.collectAsState(initial = null)
+            val isDarkTheme = isDarkThemePref ?: androidx.compose.foundation.isSystemInDarkTheme()
+
+            TodoAppTheme(darkTheme = isDarkTheme) {
                 AlarmScreen(
                     viewModel = viewModel,
                     taskId = taskId,

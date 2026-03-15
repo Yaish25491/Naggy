@@ -46,6 +46,9 @@ class TaskListViewModel @Inject constructor(
     val lastBackupTime: StateFlow<Long> = settingsRepository.lastBackupTime
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
+    val isDarkTheme: StateFlow<Boolean?> = settingsRepository.isDarkTheme
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     val userData: StateFlow<UserData?> = settingsRepository.userData
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -53,6 +56,12 @@ class TaskListViewModel @Inject constructor(
 
     init {
         loadTasks()
+    }
+
+    fun setDarkTheme(isDark: Boolean?) {
+        viewModelScope.launch {
+            settingsRepository.setDarkTheme(isDark)
+        }
     }
 
     private fun loadTasks() {
