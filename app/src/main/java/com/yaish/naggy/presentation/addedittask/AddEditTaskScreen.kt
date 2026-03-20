@@ -8,14 +8,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yaish.naggy.R
+import com.yaish.naggy.domain.model.Priority
+import com.yaish.naggy.domain.model.RecurrencePattern
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -24,7 +30,7 @@ import java.util.*
 
 import com.yaish.naggy.domain.model.Task
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEditTaskScreen(
     taskId: Long? = null,
@@ -109,6 +115,89 @@ fun AddEditTaskScreen(
                 minLines = 3,
                 maxLines = 5
             )
+
+            // Priority
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Priority",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    for (priority in Priority.values()) {
+                        FilterChip(
+                            selected = uiState.priority == priority,
+                            onClick = { viewModel.updatePriority(priority) },
+                            label = { Text(priority.name) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = when (priority) {
+                                    Priority.HIGH -> MaterialTheme.colorScheme.errorContainer
+                                    Priority.MEDIUM -> MaterialTheme.colorScheme.primaryContainer
+                                    Priority.LOW -> MaterialTheme.colorScheme.secondaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Tags
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Tags",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                var tagInput by remember { mutableStateOf("") }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = tagInput,
+                        onValueChange = { tagInput = it },
+                        placeholder = { Text("Add tag...") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    IconButton(
+                        onClick = {
+                            if (tagInput.isNotBlank()) {
+                                viewModel.addTag(tagInput.trim())
+                                tagInput = ""
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add tag")
+                    }
+                }
+                
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    uiState.tags.forEach { tag ->
+                        InputChip(
+                            selected = true,
+                            onClick = { viewModel.removeTag(tag) },
+                            label = { Text(tag) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove tag",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+            }
 
             // Deadline Date
             val deadlineText = if (uiState.deadlineTimestamp != null) {
@@ -278,7 +367,7 @@ fun AddEditTaskScreen(
                     .fillMaxWidth()
                     .clickable { syncToCalendar = !syncToCalendar }
                     .padding(vertical = 8.dp),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Checkbox(
                     checked = syncToCalendar,
@@ -286,6 +375,41 @@ fun AddEditTaskScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Add to Google Calendar")
+            }
+
+            // Recurrence
+            var expandedRecurrence by remember { mutableStateOf(false) }
+            val recurrenceOptions = RecurrencePattern.values()
+
+            ExposedDropdownMenuBox(
+                expanded = expandedRecurrence,
+                onExpandedChange = { expandedRecurrence = it }
+            ) {
+                OutlinedTextField(
+                    value = uiState.recurrencePattern.name,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Repeat") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRecurrence) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                )
+
+                ExposedDropdownMenu(
+                    expanded = expandedRecurrence,
+                    onDismissRequest = { expandedRecurrence = false }
+                ) {
+                    for (pattern in recurrenceOptions) {
+                        DropdownMenuItem(
+                            text = { Text(pattern.name) },
+                            onClick = {
+                                viewModel.updateRecurrence(pattern)
+                                expandedRecurrence = false
+                            }
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

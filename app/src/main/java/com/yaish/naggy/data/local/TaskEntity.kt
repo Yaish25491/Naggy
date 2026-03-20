@@ -3,6 +3,9 @@ package com.yaish.naggy.data.local
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+import com.yaish.naggy.domain.model.Priority
+import com.yaish.naggy.domain.model.RecurrencePattern
+
 @Entity(tableName = "tasks")
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true)
@@ -21,6 +24,10 @@ data class TaskEntity(
     val reminderTimeOfDay: String,
 
     val isCompleted: Boolean = false,
+    val priority: Priority = Priority.NONE,
+    val tags: List<String> = emptyList(),
+    val recurrencePattern: RecurrencePattern = RecurrencePattern.NONE,
+    val recurrenceRule: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null
 )
