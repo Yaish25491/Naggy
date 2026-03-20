@@ -289,6 +289,12 @@ UI and user interactions:
 - Reactive UI with Kotlin Flow
 - Material 3 design implementation
 
+#### Reminder System Architecture
+- **AlarmScheduler**: Uses Android's `AlarmManager` to schedule precise wake-up alarms (`setExactAndAllowWhileIdle`) based on task deadlines and reminder lead times.
+- **AlarmReceiver**: A `BroadcastReceiver` that handles the alarm intent in the background, fetches the task from the database using Coroutines, and posts a high-priority notification.
+- **AlarmActivity**: A full-screen intent activity launched from the notification that allows users to mark tasks as done, snooze them, or dismiss the alarm—even over the lock screen.
+- **SnoozeReminderUseCase**: Schedules a new alarm by calculating a new trigger timestamp and passing it to the `AlarmScheduler`.
+
 ### Data Flow
 
 ```

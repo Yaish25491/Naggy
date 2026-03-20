@@ -6,6 +6,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.yaish.naggy.domain.model.Task
 import com.yaish.naggy.presentation.addedittask.AddEditTaskScreen
 import com.yaish.naggy.presentation.calendar.CalendarScreen
 import com.yaish.naggy.presentation.tasklist.TaskListScreen
@@ -22,7 +23,8 @@ sealed class Screen(val route: String) {
 fun NavGraph(
     navController: NavHostController,
     onBackup: () -> Unit,
-    onRestore: () -> Unit
+    onRestore: () -> Unit,
+    onSyncToCalendar: (Task) -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -70,7 +72,8 @@ fun NavGraph(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onBackup = onBackup
+                onBackup = onBackup,
+                onSyncToCalendar = onSyncToCalendar
             )
         }
     }

@@ -67,7 +67,7 @@ class AddEditTaskViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(reminderTimeOfDay = time)
     }
 
-    fun saveTask(onSuccess: () -> Unit) {
+    fun saveTask(onSuccess: (Task) -> Unit) {
         val state = _uiState.value
 
         // Validate
@@ -110,8 +110,8 @@ class AddEditTaskViewModel @Inject constructor(
             result.fold(
                 onSuccess = {
                     _uiState.value = state.copy(isLoading = false)
-                    onTriggerBackup?.invoke()
-                    onSuccess()
+                    // onTriggerBackup?.invoke() // Removed to prevent annoying backup toasts on every save
+                    onSuccess(task)
                 },
                 onFailure = { error ->
                     _uiState.value = state.copy(

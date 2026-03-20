@@ -37,8 +37,12 @@ import com.google.android.gms.common.api.Scope
 import com.google.api.client.extensions.android.http.AndroidHttp
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.json.gson.GsonFactory
+import com.google.api.services.calendar.Calendar
+import com.google.api.services.calendar.CalendarScopes
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
+import com.yaish.naggy.data.repository.CalendarServiceHelper
+import com.yaish.naggy.domain.model.Task
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -53,6 +57,7 @@ class MainActivity : ComponentActivity() {
 
     private val TAG = "MainActivity"
     private var driveServiceHelper: DriveServiceHelper? by mutableStateOf(null)
+    private var calendarServiceHelper: CalendarServiceHelper? by mutableStateOf(null)
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
@@ -114,11 +119,15 @@ class MainActivity : ComponentActivity() {
                     // Check login status
                     val account = GoogleSignIn.getLastSignedInAccount(context)
                     if (account != null) {
-                        settingsRepository.saveUserData(
-                            name = account.displayName ?: "User",
-                            email = account.email ?: ""
-                        )
-                        initializeDriveService(account)
+                        if (!GoogleSignIn.hasPermissions(account, Scope(DriveScopes.DRIVE_APPDATA), Scope(CalendarScopes.CALENDAR_EVENTS))) {
+                            showLoginPrompt = true
+                        } else {
+                            settingsRepository.saveUserData(
+                                name = account.displayName ?: "User",
+                                email = account.email ?: ""
+                            )
+                            initializeGoogleServices(account)
+                        }
                     } else {
                         val isFirstRun = settingsRepository.isFirstRun.first()
                         if (isFirstRun) {
@@ -152,7 +161,8 @@ class MainActivity : ComponentActivity() {
                     NavGraph(
                         navController = navController,
                         onBackup = { backupDatabase() },
-                        onRestore = { restoreDatabase() }
+                        onRestore = { restoreDatabase() },
+                        onSyncToCalendar = { task -> syncTaskToCalendar(task) }
                     )
                 }
 
@@ -180,9 +190,9 @@ class MainActivity : ComponentActivity() {
                 if (showLoginPrompt) {
                     val webClientId = stringResource(id = R.string.default_web_client_id)
                     AlertDialog(
-                        onDismissRequest = { /* Don't allow dismiss */ },
+                        onDismissRequest = { showLoginPrompt = false },
                         title = { Text("Welcome!") },
-                        text = { Text("To enable backup and restore features, please sign in with your Google account.") },
+                        text = { Text("To enable backup, restore, and Google Calendar sync, please sign in with your Google account and grant the required permissions.") },
                         confirmButton = {
                             TextButton(onClick = {
                                 showLoginPrompt = false
@@ -190,12 +200,17 @@ class MainActivity : ComponentActivity() {
                                     .requestEmail()
                                     .requestProfile()
                                     .requestIdToken(webClientId)
-                                    .requestScopes(Scope(DriveScopes.DRIVE_APPDATA))
+                                    .requestScopes(Scope(DriveScopes.DRIVE_APPDATA), Scope(CalendarScopes.CALENDAR_EVENTS))
                                     .build()
                                 val client = GoogleSignIn.getClient(this@MainActivity, gso)
                                 googleSignInLauncher.launch(client.signInIntent)
                             }) {
                                 Text("Sign In")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showLoginPrompt = false }) {
+                                Text("Later")
                             }
                         }
                     )
@@ -231,7 +246,7 @@ class MainActivity : ComponentActivity() {
                     email = account.email ?: ""
                 )
             }
-            initializeDriveService(account)
+            initializeGoogleServices(account)
             Toast.makeText(this, "Welcome, ${account.displayName}!", Toast.LENGTH_SHORT).show()
         } catch (e: ApiException) {
             Log.e(TAG, "Sign in failed: ${e.statusCode}")
@@ -239,21 +254,52 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun initializeDriveService(account: com.google.android.gms.auth.api.signin.GoogleSignInAccount) {
+    private fun initializeGoogleServices(account: com.google.android.gms.auth.api.signin.GoogleSignInAccount) {
         val credential = GoogleAccountCredential.usingOAuth2(
-            this, Collections.singleton(DriveScopes.DRIVE_APPDATA)
+            this, listOf(DriveScopes.DRIVE_APPDATA, CalendarScopes.CALENDAR_EVENTS)
         )
         credential.selectedAccount = account.account
 
+        val httpTransport = AndroidHttp.newCompatibleTransport()
+        val jsonFactory = GsonFactory()
+
         val googleDriveService = Drive.Builder(
-            AndroidHttp.newCompatibleTransport(),
-            GsonFactory(),
+            httpTransport,
+            jsonFactory,
             credential
         )
             .setApplicationName("Naggy")
             .build()
-
         driveServiceHelper = DriveServiceHelper(googleDriveService)
+
+        val googleCalendarService = Calendar.Builder(
+            httpTransport,
+            jsonFactory,
+            credential
+        )
+            .setApplicationName("Naggy")
+            .build()
+        calendarServiceHelper = CalendarServiceHelper(googleCalendarService)
+    }
+
+    private fun syncTaskToCalendar(task: Task) {
+        if (calendarServiceHelper == null) {
+            Toast.makeText(this, "Please sign in to sync with Calendar", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        calendarServiceHelper?.insertTaskEvent(
+            title = task.title,
+            description = task.description,
+            deadlineTimestamp = task.deadlineTimestamp,
+            reminderLeadTimeMinutes = task.reminderLeadTimeMinutes
+        )?.addOnSuccessListener {
+            Toast.makeText(this, "Synced to Google Calendar", Toast.LENGTH_SHORT).show()
+        }?.addOnFailureListener {
+            Log.e(TAG, "Calendar sync failed", it)
+            val errorMessage = it.message ?: it.cause?.message ?: "Unknown error"
+            Toast.makeText(this, "Failed to sync to Calendar: $errorMessage", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun backupDatabase() {

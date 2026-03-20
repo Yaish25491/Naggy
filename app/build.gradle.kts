@@ -88,10 +88,11 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
-    // Google Auth & Drive
+    // Google Auth & Drive & Calendar
     implementation(libs.play.services.auth)
     implementation(libs.googleAuthApi)
     implementation(libs.googleDriveApi)
+    implementation(libs.googleCalendarApi)
     implementation(libs.googleHttpGson)
     implementation(libs.googleHttpAndroid)
 

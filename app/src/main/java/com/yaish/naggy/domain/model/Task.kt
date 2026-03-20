@@ -50,6 +50,32 @@ data class Task(
     }
 
     /**
+     * Calculate the timestamp for the next daily reminder (tomorrow at the requested time of day)
+     */
+    fun calculateNextDailyReminderTimestamp(): Long {
+        val now = LocalDateTime.now()
+        val timeParts = reminderTimeOfDay.split(":")
+        val hour = timeParts[0].toInt()
+        val minute = timeParts[1].toInt()
+
+        var nextReminderDateTime = now
+            .withHour(hour)
+            .withMinute(minute)
+            .withSecond(0)
+            .withNano(0)
+
+        // If the calculated time is in the past or present, schedule for tomorrow
+        if (!nextReminderDateTime.isAfter(now)) {
+            nextReminderDateTime = nextReminderDateTime.plusDays(1)
+        }
+
+        return nextReminderDateTime
+            .atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+    }
+
+    /**
      * Get current status based on deadline and completion
      */
     fun getStatus(): TaskStatus {

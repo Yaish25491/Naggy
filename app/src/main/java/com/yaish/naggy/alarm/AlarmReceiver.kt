@@ -24,6 +24,9 @@ class AlarmReceiver : BroadcastReceiver() {
     @Inject
     lateinit var taskRepository: TaskRepository
 
+    @Inject
+    lateinit var alarmScheduler: AlarmScheduler
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -35,6 +38,10 @@ class AlarmReceiver : BroadcastReceiver() {
             val task = taskRepository.getTaskById(taskId)
             if (task != null && !task.isCompleted) {
                 showNotification(context, taskId, task.title, task.getFormattedDeadline())
+                
+                // Schedule the next daily reminder to keep "nagging" until completed
+                val nextReminderTimestamp = task.calculateNextDailyReminderTimestamp()
+                alarmScheduler.schedule(taskId, nextReminderTimestamp)
             }
         }
     }

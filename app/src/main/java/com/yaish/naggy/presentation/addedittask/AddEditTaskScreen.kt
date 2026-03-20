@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -22,16 +22,20 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
+import com.yaish.naggy.domain.model.Task
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTaskScreen(
     taskId: Long? = null,
     onNavigateBack: () -> Unit,
     onBackup: () -> Unit = {},
+    onSyncToCalendar: (Task) -> Unit = {},
     viewModel: AddEditTaskViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    var syncToCalendar by remember { mutableStateOf(false) }
 
     LaunchedEffect(taskId) {
         if (taskId != null) {
@@ -63,7 +67,7 @@ fun AddEditTaskScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -138,6 +142,7 @@ fun AddEditTaskScreen(
 
             // Reminder Lead Time
             var expandedLeadTime by remember { mutableStateOf(false) }
+            var showCustomLeadTimeDialog by remember { mutableStateOf(false) }
             val leadTimeOptions = mapOf(
                 15 to "15 minutes before",
                 30 to "30 minutes before",
@@ -148,12 +153,15 @@ fun AddEditTaskScreen(
                 10080 to "1 week before"
             )
 
+            val currentLeadTimeText = leadTimeOptions[uiState.reminderLeadTimeMinutes] 
+                ?: "${uiState.reminderLeadTimeMinutes} minutes before"
+
             ExposedDropdownMenuBox(
                 expanded = expandedLeadTime,
                 onExpandedChange = { expandedLeadTime = it }
             ) {
                 OutlinedTextField(
-                    value = leadTimeOptions[uiState.reminderLeadTimeMinutes] ?: "",
+                    value = currentLeadTimeText,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text(stringResource(R.string.reminder_lead_time)) },
@@ -176,7 +184,72 @@ fun AddEditTaskScreen(
                             }
                         )
                     }
+                    DropdownMenuItem(
+                        text = { Text("Custom...") },
+                        onClick = {
+                            expandedLeadTime = false
+                            showCustomLeadTimeDialog = true
+                        }
+                    )
                 }
+            }
+
+            if (showCustomLeadTimeDialog) {
+                var customValue by remember { mutableStateOf("") }
+                var customUnit by remember { mutableStateOf(1) } // 1=min, 60=hour, 1440=day
+                
+                AlertDialog(
+                    onDismissRequest = { showCustomLeadTimeDialog = false },
+                    title = { Text("Custom Lead Time") },
+                    text = {
+                        Column {
+                            OutlinedTextField(
+                                value = customValue,
+                                onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) customValue = it },
+                                label = { Text("Amount") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                FilterChip(
+                                    selected = customUnit == 1,
+                                    onClick = { customUnit = 1 },
+                                    label = { Text("Mins") }
+                                )
+                                FilterChip(
+                                    selected = customUnit == 60,
+                                    onClick = { customUnit = 60 },
+                                    label = { Text("Hours") }
+                                )
+                                FilterChip(
+                                    selected = customUnit == 1440,
+                                    onClick = { customUnit = 1440 },
+                                    label = { Text("Days") }
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val amount = customValue.toIntOrNull() ?: 0
+                            if (amount > 0) {
+                                viewModel.updateReminderLeadTime(amount * customUnit)
+                            }
+                            showCustomLeadTimeDialog = false
+                        }) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCustomLeadTimeDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
 
             // Reminder Time of Day
@@ -199,11 +272,34 @@ fun AddEditTaskScreen(
                 )
             )
 
+            // Google Calendar Sync Checkbox
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { syncToCalendar = !syncToCalendar }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = syncToCalendar,
+                    onCheckedChange = { syncToCalendar = it }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add to Google Calendar")
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Save button
             Button(
-                onClick = { viewModel.saveTask(onNavigateBack) },
+                onClick = {
+                    viewModel.saveTask { savedTask ->
+                        if (syncToCalendar) {
+                            onSyncToCalendar(savedTask)
+                        }
+                        onNavigateBack()
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isLoading
             ) {
