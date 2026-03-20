@@ -68,6 +68,12 @@ class TaskRepository @Inject constructor(
         )
     }
 
+    fun getCompletedCountSince(since: Long): Flow<Int> = taskDao.getCompletedTasksCountSince(since)
+    
+    fun getOverdueCount(now: Long): Flow<Int> = taskDao.getOverdueTasksCount(now)
+    
+    fun getAllCompletedTimestamps(): Flow<List<Long>> = taskDao.getAllCompletedTimestamps()
+
     private fun TaskEntity.toDomainModel(): Task {
         return Task(
             id = id,
@@ -77,6 +83,10 @@ class TaskRepository @Inject constructor(
             reminderLeadTimeMinutes = reminderLeadTimeMinutes,
             reminderTimeOfDay = reminderTimeOfDay,
             isCompleted = isCompleted,
+            priority = priority,
+            tags = tags,
+            recurrencePattern = recurrencePattern,
+            recurrenceRule = recurrenceRule,
             createdAt = createdAt,
             completedAt = completedAt
         )
@@ -91,6 +101,10 @@ class TaskRepository @Inject constructor(
             reminderLeadTimeMinutes = reminderLeadTimeMinutes,
             reminderTimeOfDay = reminderTimeOfDay,
             isCompleted = isCompleted,
+            priority = priority,
+            tags = tags,
+            recurrencePattern = recurrencePattern,
+            recurrenceRule = recurrenceRule,
             createdAt = createdAt,
             completedAt = completedAt
         )

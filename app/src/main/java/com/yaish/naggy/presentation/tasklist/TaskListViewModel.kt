@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -21,6 +22,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
+
+import com.yaish.naggy.domain.model.Priority
 
 @HiltViewModel
 class TaskListViewModel @Inject constructor(
@@ -33,11 +36,29 @@ class TaskListViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    val categorizedTasks: StateFlow<Map<TaskCategory, List<Task>>> = taskRepository.getAllTasks()
-        .combine(_isLoading) { tasks, loading ->
-            if (loading && tasks.isEmpty()) emptyMap()
-            else categorizeTasks(tasks)
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    private val _sortOption = MutableStateFlow(TaskSortOption.DEADLINE_ASC)
+    val sortOption: StateFlow<TaskSortOption> = _sortOption.asStateFlow()
+
+    private val _filterState = MutableStateFlow(TaskFilterState())
+    val filterState: StateFlow<TaskFilterState> = _filterState.asStateFlow()
+
+    val categorizedTasks: StateFlow<Map<TaskCategory, List<Task>>> = combine(
+        taskRepository.getAllTasks(),
+        _sortOption,
+        _filterState,
+        _isLoading
+    ) { tasks, sort, filter, loading ->
+        if (loading && tasks.isEmpty()) emptyMap()
+        else {
+            val filteredTasks = filterTasks(tasks, filter)
+            val sortedTasks = sortTasks(filteredTasks, sort)
+            categorizeTasks(sortedTasks)
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    val availableTags: StateFlow<List<String>> = taskRepository.getAllTasks()
+        .map { tasks: List<Task> -> tasks.flatMap { it.tags }.distinct().sorted() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Keep the original tasks flow if needed, but categorizedTasks is better for the UI
     private val _tasks = MutableStateFlow<List<Task>>(emptyList())
@@ -114,6 +135,47 @@ class TaskListViewModel @Inject constructor(
             onTriggerBackup?.invoke()
         }
     }
+
+    fun updateSortOption(option: TaskSortOption) {
+        _sortOption.value = option
+    }
+
+    fun updateFilterPriority(priority: Priority?) {
+        _filterState.value = _filterState.value.copy(priority = priority)
+    }
+
+    fun toggleFilterTag(tag: String) {
+        val currentTags = _filterState.value.tags.toMutableSet()
+        if (currentTags.contains(tag)) {
+            currentTags.remove(tag)
+        } else {
+            currentTags.add(tag)
+        }
+        _filterState.value = _filterState.value.copy(tags = currentTags)
+    }
+
+    fun clearFilters() {
+        _filterState.value = TaskFilterState()
+    }
+
+    private fun filterTasks(tasks: List<Task>, filter: TaskFilterState): List<Task> {
+        return tasks.filter { task ->
+            val matchesPriority = filter.priority == null || task.priority == filter.priority
+            val matchesTags = filter.tags.isEmpty() || task.tags.any { filter.tags.contains(it) }
+            matchesPriority && matchesTags
+        }
+    }
+
+    private fun sortTasks(tasks: List<Task>, sort: TaskSortOption): List<Task> {
+        return when (sort) {
+            TaskSortOption.DEADLINE_ASC -> tasks.sortedBy { it.deadlineTimestamp }
+            TaskSortOption.DEADLINE_DESC -> tasks.sortedByDescending { it.deadlineTimestamp }
+            TaskSortOption.PRIORITY_DESC -> tasks.sortedWith(
+                compareByDescending<Task> { it.priority.ordinal }.thenBy { it.deadlineTimestamp }
+            )
+            TaskSortOption.CREATED_DESC -> tasks.sortedByDescending { it.createdAt }
+        }
+    }
 }
 
 enum class TaskCategory(val displayName: String) {
@@ -124,3 +186,15 @@ enum class TaskCategory(val displayName: String) {
     LATER("Later"),
     COMPLETED("Completed")
 }
+
+enum class TaskSortOption(val displayName: String) {
+    DEADLINE_ASC("Deadline (Soonest)"),
+    DEADLINE_DESC("Deadline (Latest)"),
+    PRIORITY_DESC("Priority (High-Low)"),
+    CREATED_DESC("Newest Created")
+}
+
+data class TaskFilterState(
+    val priority: Priority? = null,
+    val tags: Set<String> = emptySet()
+)

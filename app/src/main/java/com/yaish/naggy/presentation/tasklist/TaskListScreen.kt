@@ -20,7 +20,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yaish.naggy.R
+import com.yaish.naggy.domain.model.Priority
+import com.yaish.naggy.domain.model.RecurrencePattern
 import com.yaish.naggy.domain.model.Task
 import com.yaish.naggy.domain.model.TaskStatus
 import kotlinx.coroutines.launch
@@ -43,12 +49,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TaskListScreen(
     onAddTask: () -> Unit,
     onEditTask: (Long) -> Unit,
     onCalendarClick: () -> Unit,
+    onDashboardClick: () -> Unit = {},
     onBackup: () -> Unit = {},
     onRestore: () -> Unit = {},
     viewModel: TaskListViewModel = hiltViewModel()
@@ -58,9 +65,14 @@ fun TaskListScreen(
     val lastBackupTime by viewModel.lastBackupTime.collectAsState()
     val userData by viewModel.userData.collectAsState()
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+    val sortOption by viewModel.sortOption.collectAsState()
+    val filterState by viewModel.filterState.collectAsState()
+    val availableTags by viewModel.availableTags.collectAsState()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    var showFilterSheet by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.onTriggerBackup = onBackup
@@ -117,6 +129,18 @@ fun TaskListScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
                     
+                    NavigationDrawerItem(
+                        label = { Text("Productivity Dashboard") },
+                        selected = false,
+                        onClick = {
+                            onDashboardClick()
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.TrendingUp, contentDescription = null) }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     NavigationDrawerItem(
                         label = { Text(stringResource(R.string.calendar_view)) },
                         selected = false,
@@ -179,6 +203,40 @@ fun TaskListScreen(
                 TopAppBar(
                     title = { Text(stringResource(R.string.task_list_title)) },
                     actions = {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(Icons.Default.Sort, contentDescription = "Sort")
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false }
+                            ) {
+                                for (option in TaskSortOption.values()) {
+                                    DropdownMenuItem(
+                                        text = { Text(option.displayName) },
+                                        onClick = {
+                                            viewModel.updateSortOption(option)
+                                            showSortMenu = false
+                                        },
+                                        leadingIcon = {
+                                            if (sortOption == option) {
+                                                Icon(Icons.Default.CheckCircle, contentDescription = null)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        IconButton(onClick = { showFilterSheet = true }) {
+                            val isFiltered = filterState.priority != null || filterState.tags.isNotEmpty()
+                            BadgedBox(
+                                badge = {
+                                    if (isFiltered) {
+                                        Badge { Text("!") }
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Default.FilterList, contentDescription = "Filter")
+                            }
+                        }
                         IconButton(onClick = {
                             scope.launch { drawerState.open() }
                         }) {
@@ -270,9 +328,115 @@ fun TaskListScreen(
                 }
             }
         }
+
+        if (showFilterSheet) {
+            FilterBottomSheet(
+                filterState = filterState,
+                availableTags = availableTags,
+                onUpdatePriority = { viewModel.updateFilterPriority(it) },
+                onToggleTag = { viewModel.toggleFilterTag(it) },
+                onClearAll = { viewModel.clearFilters() },
+                onDismiss = { showFilterSheet = false }
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun FilterBottomSheet(
+    filterState: TaskFilterState,
+    availableTags: List<String>,
+    onUpdatePriority: (Priority?) -> Unit,
+    onToggleTag: (String) -> Unit,
+    onClearAll: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Filters",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = onClearAll) {
+                    Text("Clear All")
+                }
+            }
+
+            // Priority Filter
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Priority",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    for (priority in Priority.values()) {
+                        FilterChip(
+                            selected = filterState.priority == priority,
+                            onClick = { 
+                                if (filterState.priority == priority) onUpdatePriority(null)
+                                else onUpdatePriority(priority)
+                            },
+                            label = { Text(priority.name) }
+                        )
+                    }
+                }
+            }
+
+            // Tags Filter
+            if (availableTags.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Tags",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableTags.forEach { tag ->
+                            FilterChip(
+                                selected = filterState.tags.contains(tag),
+                                onClick = { onToggleTag(tag) },
+                                label = { Text(tag) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Show Results")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TaskItem(
     task: Task,
@@ -335,22 +499,76 @@ fun TaskItem(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = task.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        textDecoration = if (task.isCompleted) {
-                            TextDecoration.LineThrough
-                        } else {
-                            null
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (task.priority != Priority.NONE) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when (task.priority) {
+                                            Priority.HIGH -> Color.Red
+                                            Priority.MEDIUM -> Color(0xFFFFA500) // Orange
+                                            Priority.LOW -> Color.Blue
+                                            else -> Color.Transparent
+                                        }
+                                    )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                         }
-                    )
+                        
+                        Text(
+                            text = task.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            textDecoration = if (task.isCompleted) {
+                                TextDecoration.LineThrough
+                            } else {
+                                null
+                            }
+                        )
+                        
+                        if (task.recurrencePattern != RecurrencePattern.NONE) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = "Recurring",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
 
                     Text(
                         text = task.getFormattedDeadline(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    
+                    if (task.tags.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            task.tags.forEach { tag ->
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            color = MaterialTheme.colorScheme.secondaryContainer,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = tag,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))

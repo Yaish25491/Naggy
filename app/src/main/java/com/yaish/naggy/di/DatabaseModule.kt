@@ -26,6 +26,7 @@ object DatabaseModule {
             TaskDatabase.DATABASE_NAME
         )
             .setJournalMode(androidx.room.RoomDatabase.JournalMode.TRUNCATE)
+            .addMigrations(TaskDatabase.MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
     }

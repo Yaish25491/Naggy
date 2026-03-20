@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.yaish.naggy.domain.model.Priority
+import com.yaish.naggy.domain.model.RecurrencePattern
+
 @HiltViewModel
 class AddEditTaskViewModel @Inject constructor(
     private val createTaskUseCase: CreateTaskUseCase,
@@ -36,6 +39,10 @@ class AddEditTaskViewModel @Inject constructor(
                     deadlineTimestamp = task.deadlineTimestamp,
                     reminderLeadTimeMinutes = task.reminderLeadTimeMinutes,
                     reminderTimeOfDay = task.reminderTimeOfDay,
+                    priority = task.priority,
+                    tags = task.tags,
+                    recurrencePattern = task.recurrencePattern,
+                    recurrenceRule = task.recurrenceRule,
                     isLoading = false
                 )
             } else {
@@ -67,6 +74,28 @@ class AddEditTaskViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(reminderTimeOfDay = time)
     }
 
+    fun updatePriority(priority: Priority) {
+        _uiState.value = _uiState.value.copy(priority = priority)
+    }
+
+    fun addTag(tag: String) {
+        val currentTags = _uiState.value.tags.toMutableList()
+        if (tag.isNotBlank() && !currentTags.contains(tag)) {
+            currentTags.add(tag)
+            _uiState.value = _uiState.value.copy(tags = currentTags)
+        }
+    }
+
+    fun removeTag(tag: String) {
+        val currentTags = _uiState.value.tags.toMutableList()
+        currentTags.remove(tag)
+        _uiState.value = _uiState.value.copy(tags = currentTags)
+    }
+
+    fun updateRecurrence(pattern: RecurrencePattern, rule: String? = null) {
+        _uiState.value = _uiState.value.copy(recurrencePattern = pattern, recurrenceRule = rule)
+    }
+
     fun saveTask(onSuccess: (Task) -> Unit) {
         val state = _uiState.value
 
@@ -95,7 +124,11 @@ class AddEditTaskViewModel @Inject constructor(
                 description = state.description,
                 deadlineTimestamp = state.deadlineTimestamp!!,
                 reminderLeadTimeMinutes = state.reminderLeadTimeMinutes,
-                reminderTimeOfDay = state.reminderTimeOfDay
+                reminderTimeOfDay = state.reminderTimeOfDay,
+                priority = state.priority,
+                tags = state.tags,
+                recurrencePattern = state.recurrencePattern,
+                recurrenceRule = state.recurrenceRule
             )
 
             val result = if (editingTaskId != null) {
@@ -134,6 +167,10 @@ data class AddEditTaskUiState(
     val deadlineTimestamp: Long? = null,
     val reminderLeadTimeMinutes: Int = 1440, // Default: 1 day
     val reminderTimeOfDay: String = "09:00",
+    val priority: Priority = Priority.NONE,
+    val tags: List<String> = emptyList(),
+    val recurrencePattern: RecurrencePattern = RecurrencePattern.NONE,
+    val recurrenceRule: String? = null,
     val titleError: String? = null,
     val errorMessage: String? = null,
     val isLoading: Boolean = false
