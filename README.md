@@ -208,76 +208,61 @@ app/src/main/java/com/yaish/naggy/
 ├── 📁 domain/                      # Domain Layer (Business Logic)
 │   ├── model/                      # Domain models
 │   │   ├── Task.kt                # Core task model
-│   │   └── TaskStatus.kt          # Task status enum
+│   │   ├── TaskStatus.kt          # Task status enum
+│   │   ├── Priority.kt            # Priority levels (High/Medium/Low)
+│   │   └── RecurrencePattern.kt   # Recurrence definitions
 │   └── usecase/                    # Use cases
 │       ├── CreateTaskUseCase.kt   # Create task logic
-│       ├── CompleteTaskUseCase.kt # Complete task logic
+│       ├── CompleteTaskUseCase.kt # Resolve task logic
 │       ├── DeleteTaskUseCase.kt   # Delete task logic
 │       └── SnoozeReminderUseCase.kt # Snooze logic
 │
 ├── 📁 presentation/                # Presentation Layer (UI)
-│   ├── tasklist/                   # Task list screen
-│   │   ├── TaskListScreen.kt      # Compose UI
-│   │   └── TaskListViewModel.kt   # ViewModel
-│   ├── addedittask/                # Add/Edit screen
-│   │   ├── AddEditTaskScreen.kt
-│   │   └── AddEditTaskViewModel.kt
-│   ├── calendar/                   # Calendar view
-│   │   ├── CalendarScreen.kt
-│   │   └── CalendarViewModel.kt
-│   └── alarm/                      # Alarm notification
-│       ├── AlarmActivity.kt       # Full-screen alarm UI
-│       └── AlarmViewModel.kt
+│   ├── tasklist/                   # Active Directive view
+│   ├── addedittask/                # Task Configuration
+│   ├── calendar/                   # Temporal Grid
+│   ├── dashboard/                  # System Analytics
+│   ├── history/                    # Resolved Directive Logs
+│   └── alarm/                      # Critical Alert System
+│
+├── 📁 ui/                          # UI System
+│   ├── components/                 # Glassmorphic Shared Components
+│   └── theme/                      # Visual Identity (Palettes & Typography)
 │
 ├── 📁 alarm/                       # Alarm Scheduling System
-│   ├── AlarmScheduler.kt          # Schedules exact alarms
-│   └── AlarmReceiver.kt           # Receives alarm broadcasts
-│
 ├── 📁 widget/                      # Home Screen Widget
-│   └── TaskWidget.kt              # Glance widget implementation
-│
-├── 📁 di/                          # Dependency Injection
-│   └── DatabaseModule.kt          # Hilt modules
-│
-├── 📁 navigation/                  # Navigation Graph
-│   └── NavGraph.kt                # Compose navigation routes
-│
-├── 📁 ui/theme/                    # UI Theming
-│   ├── Theme.kt                   # Theme configuration
-│   └── Type.kt                    # Typography styles
-│
-├── MainActivity.kt                 # Main entry point
-└── TodoApplication.kt              # Application class
+├── 📁 di/                          # Dependency Injection (Hilt)
+├── 📁 navigation/                  # Navigation Controller
+├── MainActivity.kt                 # System Entry Point
+└── TodoApplication.kt              # Application Context
 ```
 
 ### Architecture Layers
 
 #### Data Layer
-Handles all data operations including:
-- Room database interactions via DAOs
-- Google Drive backup/restore operations
-- Settings and preferences management
-- Data source abstraction
+Handles all persistent data operations:
+- **Room Database**: Local SQLite storage with robust migrations.
+- **Google Drive Service**: Secure cloud backup and restoration system.
+- **Calendar API**: Synchronization bridge to external Google Calendars.
+- **Settings Store**: User preferences (Haptics, Theme) via DataStore.
 
 #### Domain Layer
-Contains pure business logic:
-- Domain models (Task, TaskStatus)
-- Use cases for each business operation
-- Independent of Android framework
-- Easily testable
+Contains pure, framework-independent business logic:
+- **Directive Models**: Task, Priority, and Recurrence entities.
+- **Functional Use Cases**: Isolated business actions (e.g., `CompleteTaskUseCase`).
 
-#### Presentation Layer
-UI and user interactions:
-- Jetpack Compose screens
-- ViewModels for state management
-- Reactive UI with Kotlin Flow
-- Material 3 design implementation
+#### Presentation Layer (Cyber-HUD)
+State-driven reactive UI built with **Jetpack Compose**:
+- **System Analytics**: Real-time productivity monitoring via wave charts.
+- **Temporal Grid**: A high-tech calendar for directive mapping.
+- **History Hub**: A searchable record of all resolved system nodes.
+- **Glassmorphic UI**: Premium components with background blur and diffraction.
 
 #### Reminder System Architecture
-- **AlarmScheduler**: Uses Android's `AlarmManager` to schedule precise wake-up alarms (`setExactAndAllowWhileIdle`) based on task deadlines and reminder lead times.
-- **AlarmReceiver**: A `BroadcastReceiver` that handles the alarm intent in the background, fetches the task from the database using Coroutines, and posts a high-priority notification.
-- **AlarmActivity**: A full-screen intent activity launched from the notification that allows users to mark tasks as done, snooze them, or dismiss the alarm—even over the lock screen.
-- **SnoozeReminderUseCase**: Schedules a new alarm by calculating a new trigger timestamp and passing it to the `AlarmScheduler`.
+- **AlarmScheduler**: Leverages Android's `AlarmManager` for precise, low-latency wakeups (`setExactAndAllowWhileIdle`).
+- **AlarmReceiver**: Background processing node that triggers notifications and initiates persistent daily nagging.
+- **Critical Alert System**: A full-screen intrusive activity with haptic feedback that bypasses the lock screen for maximum priority.
+- **Daily Nagging Logic**: Automatically re-schedules reminder events every 24 hours until a task is officially resolved in the database.
 
 ### Data Flow
 
