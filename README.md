@@ -22,44 +22,45 @@ Naggy is a feature-rich Android task management application designed to help you
 ## Features
 
 ### Core Task Management
-- **Smart Task Creation** - Create tasks with titles, descriptions, and flexible deadline scheduling
-- **Intelligent Reminders** - Set custom reminder lead times (15 minutes to 1 week) with specific time-of-day preferences
-- **Status Tracking** - Automatic status updates: Upcoming (green), Overdue (red), Completed (gray)
-- **Quick Actions** - Swipe to complete tasks, tap to edit, or delete with confirmation
+- **Smart Task Creation** - Create tasks with titles, descriptions, and flexible deadline scheduling.
+- **Intelligent Reminders** - Set custom reminder lead times (15 minutes to any custom duration) with specific time-of-day preferences.
+- **Persistent Nagging** - Once a reminder fires, the app nags you daily at the requested time until the task is marked as resolved.
+- **Advanced Filtering & Sorting** - Organize your directives by priority (High/Medium/Low), custom tags, or deadline proximity.
+- **Task History** - A dedicated hub for all resolved tasks, allowing for restoration or permanent archival.
 
 ### Alarm System
-- **Full-Screen Notifications** - Alarm-style notifications that work even on the lock screen
-- **Flexible Snooze** - Choose from 5, 10, 15, or 30-minute snooze intervals
-- **Smart Actions** - Mark tasks as done, snooze for later, or dismiss from the alarm screen
-- **Precise Scheduling** - Uses AlarmManager for exact alarm timing, even in Doze mode
+- **Full-Screen Notifications** - High-priority, intrusive alerts that work even over the lock screen.
+- **Haptic Vibration** - Optional persistent vibration alarm to ensure you never miss a critical task (without the need for sound).
+- **Flexible Snooze** - Postpone reminders with a single tap (5, 10, 15, or 30 minutes).
+- **Immediate Nagging** - Alarms trigger immediately even if the scheduled time has already passed, keeping you synchronized.
 
-### Cloud Integration
-- **Google Drive Backup** - Automatic database backup to your Google Drive app folder
-- **Smart Restore** - Intelligent restore system that detects and prompts when cloud backup is newer
-- **Conflict Resolution** - Automatic handling of backup conflicts and version management
-- **Secure Storage** - All backups are stored in your private Google Drive app data folder
+### Analytics & Cloud
+- **Productivity Dashboard** - Visualize your efficiency with a multi-line wave chart showing task completion trends and critical alerts.
+- **Temporal Grid** - A high-tech calendar view to map your directives across the timeline.
+- **Google Calendar Sync** - Seamlessly mirror your tasks to your primary Google Calendar with custom reminder offsets.
+- **Cloud Backup** - Securely back up and restore your entire system data using Google Drive integration.
 
-### Calendar & Widgets
-- **Calendar View** - Visualize your tasks in a calendar layout for better planning
-- **Home Screen Widget** - Quick access to your tasks directly from your home screen (Glance-powered)
-- **Real-time Updates** - Widget updates automatically when tasks are added or completed
+## Visual Identity: Glassmorphic Minimalist
 
-### Customization
-- **Dark/Light Theme** - Toggle between dark and light themes with system-wide preference support
-- **User Profiles** - Store your name and email for personalized experience
-- **Custom Layouts** - Modern Material 3 design with adaptive layouts
+Naggy features a sophisticated, futuristic design language inspired by modern premium interfaces (Tesla, Apple).
+
+- **Dark Mode (Glassmorphic Minimalist)**: Deep Space (#080A10) background with Twilight Grey (#14171F) surfaces and Ice Blue accents.
+- **Light Mode (Ethereal Glass)**: Pristine White (#F8F9FF) background with semi-transparent opalescent glass containers and Sky Blue accents.
+- **Motion & Depth**: Smooth entrance animations, background blurs, and subtle glowing indicators for a professional, "live" feel.
 
 ## Screenshots
 
 <div align="center">
 
-| Task List | Add Task | Full-Screen Alarm | Calendar View |
-|:---------:|:--------:|:-----------------:|:-------------:|
-| *Coming Soon* | *Coming Soon* | *Coming Soon* | *Coming Soon* |
+| Dashboard | Task List | Calendar |
+|:---------:|:---------:|:---------:|
+| <img src="docs/screenshots/dashboard.png" width="200" /> | <img src="docs/screenshots/task_list.png" width="200" /> | <img src="docs/screenshots/calendar.png" width="200" /> |
+
+| Add Task | Settings | History | Alarm Screen |
+|:---------:|:---------:|:---------:|:---------:|
+| <img src="docs/screenshots/add_task.png" width="200" /> | <img src="docs/screenshots/settings.png" width="200" /> | <img src="docs/screenshots/history.png" width="200" /> | <img src="docs/screenshots/alarm.png" width="200" /> |
 
 </div>
-
-> **Note:** Add screenshots by running the app and capturing key screens
 
 ## Installation
 
@@ -122,57 +123,40 @@ On first launch, Naggy will request the following permissions:
 
 ### Creating a Task
 
-1. Tap the **+** floating action button on the main screen
+1. Tap the **+** button in the center of the navigation dock
 2. Enter task details:
-   - **Title** (required) - Brief description of the task
-   - **Description** (optional) - Additional details or notes
-3. Set the **Deadline**:
-   - Select date using the date picker
-   - Choose time using the time picker
-4. Configure **Reminder Settings**:
-   - **Lead Time** - How far before the deadline to remind you (15 min - 1 week)
-   - **Time of Day** - What time you want to receive the reminder
-5. Tap **Save**
+   - **Title** (required) - Brief description of the directive
+   - **Description** (optional) - Additional context or data logs
+3. Set the **Terminal Deadline**:
+   - Tap the deadline field to select date and time
+4. Configure **Nag Trigger**:
+   - **Reminder Offset** - How far before the deadline to start nagging you
+   - **Recurrence** - Set the task to repeat daily, weekly, monthly, or yearly
+5. Tap **Execute (Save)**
 
 ### Managing Tasks
 
-- **Complete Task** - Tap the circle icon next to the task
-- **Edit Task** - Tap on the task card to edit details
-- **Delete Task** - Long-press or swipe to delete
-- **View by Status**:
+- **Resolve Task** - Tap the circle icon next to the task to mark as completed
+- **Temporal Status**:
   - Green badge = Upcoming
   - Red badge = Overdue
-  - Gray badge = Completed
+- **Restore Task** - Access the **History Hub** from the dock to restore previously resolved tasks
 
 ### When a Reminder Fires
 
-1. A full-screen notification appears (works even on lock screen)
-2. You'll see the task title, description, and deadline
-3. Choose an action:
-   - **Mark Done** - Completes the task and dismisses the alarm
+1. A full-screen "Critical System Alert" appears
+2. Choose an action:
+   - **Resolve Task** - Completes the task and cancels all future nags
    - **Snooze** - Postpone the reminder (5, 10, 15, or 30 minutes)
-   - **Dismiss** - Close the notification (task remains active)
+   - **Dismiss** - Close the alert (persistent nagging will trigger again tomorrow)
 
-### Google Drive Backup
+### System Management
 
-1. Open the navigation drawer (tap ≡ menu icon)
-2. Tap **Backup to Drive**
-   - Sign in with your Google account (first time only)
-   - Database is uploaded to your private app folder
-   - Last backup time is displayed
-3. Tap **Restore from Drive**
-   - Downloads the latest backup from Drive
-   - Restores all tasks to your device
-   - Automatic detection if cloud backup is newer
-
-### Theme Toggle
-
-1. Open the navigation drawer
-2. Tap the **theme icon** (☀️ or 🌙)
-3. Choose:
-   - **Light Mode** - Bright, clean interface
-   - **Dark Mode** - Easy on the eyes in low light
-   - **System Default** - Follows your device theme
+- **Backup/Restore**: Tap the **Cloud icon** in the dock to manage your system data via Google Drive
+- **Task History**: Tap the **Checkmark icon** in the dock to view and manage all resolved directives
+- **Settings**: Tap the **Gear icon** in the top bar to toggle Dark/Light mode and Haptic Vibration feedback
+- **Temporal Grid**: Tap the **Calendar icon** in the dock to visualize your directive timeline
+- **User Account**: Tap your **Profile Circle** in the top bar to view account synchronization details
 
 ## Tech Stack
 
