@@ -52,11 +52,11 @@ Naggy features a sophisticated, futuristic design language inspired by modern pr
 
 <div align="center">
 
-| Dashboard | Task List | Calendar |
+| New Task | Task List (Dark Mode) | Dashboard |
 |:---------:|:---------:|:---------:|
 | <img src="docs/screenshots/dashboard.png" width="200" /> | <img src="docs/screenshots/task_list.png" width="200" /> | <img src="docs/screenshots/calendar.png" width="200" /> |
 
-| Add Task | Settings | History | Alarm Screen |
+| Calender | Backup | Settings | Task List (White Mode) |
 |:---------:|:---------:|:---------:|:---------:|
 | <img src="docs/screenshots/add_task.png" width="200" /> | <img src="docs/screenshots/settings.png" width="200" /> | <img src="docs/screenshots/history.png" width="200" /> | <img src="docs/screenshots/alarm.png" width="200" /> |
 
