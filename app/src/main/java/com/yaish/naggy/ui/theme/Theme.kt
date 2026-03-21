@@ -12,30 +12,50 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+// --- Dark Mode: Glassmorphic Minimalist (Updated to Deep Space) ---
+val DeepSpace = Color(0xFF080A10)
+val TwilightGrey = Color(0xFF14171F)
+val CloudWhiteDark = Color(0xFFF1F3F5)
+val SilverGrey = Color(0xFFA0A8B0)
+val IceBlue = Color(0xFFA5D8FF)
+
+// --- Light Mode: Ethereal Glass ---
+val PristineBackground = Color(0xFFF8F9FF)
+val OffBlack = Color(0xFF202020)
+val SkyBlueAccent = Color(0xFF40AFFF)
+
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFD0BCFF),
-    onPrimary = Color(0xFF381E72),
-    primaryContainer = Color(0xFF4F378B),
-    onPrimaryContainer = Color(0xFFEADDFF),
-    secondary = Color(0xFFCCC2DC),
-    onSecondary = Color(0xFF332D41),
-    background = Color(0xFF1C1B1F),
-    onBackground = Color(0xFFE6E1E5),
-    surface = Color(0xFF1C1B1F),
-    onSurface = Color(0xFFE6E1E5)
+    primary = IceBlue,
+    onPrimary = DeepSpace,
+    primaryContainer = TwilightGrey,
+    onPrimaryContainer = CloudWhiteDark,
+    secondary = SilverGrey,
+    onSecondary = DeepSpace,
+    background = DeepSpace,
+    onBackground = CloudWhiteDark,
+    surface = TwilightGrey,
+    onSurface = CloudWhiteDark,
+    surfaceVariant = TwilightGrey.copy(alpha = 0.7f),
+    onSurfaceVariant = SilverGrey,
+    error = Color(0xFFFF5252),
+    outline = SilverGrey.copy(alpha = 0.2f)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6750A4),
+    primary = SkyBlueAccent,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFEADDFF),
-    onPrimaryContainer = Color(0xFF21005D),
-    secondary = Color(0xFF625B71),
+    primaryContainer = SkyBlueAccent.copy(alpha = 0.1f),
+    onPrimaryContainer = Color(0xFF004080),
+    secondary = Color(0xFF004080),
     onSecondary = Color.White,
-    background = Color(0xFFFFFBFE),
-    onBackground = Color(0xFF1C1B1F),
-    surface = Color(0xFFFFFBFE),
-    onSurface = Color(0xFF1C1B1F)
+    background = PristineBackground,
+    onBackground = OffBlack,
+    surface = Color.White,
+    onSurface = OffBlack,
+    surfaceVariant = Color.White.copy(alpha = 0.5f),
+    onSurfaceVariant = OffBlack.copy(alpha = 0.6f),
+    error = Color(0xFFFF3B30),
+    outline = Color.White
 )
 
 @Composable
@@ -43,16 +63,14 @@ fun TodoAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

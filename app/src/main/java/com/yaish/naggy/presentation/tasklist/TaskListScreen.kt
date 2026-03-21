@@ -1,324 +1,115 @@
 package com.yaish.naggy.presentation.tasklist
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.Image
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yaish.naggy.R
 import com.yaish.naggy.domain.model.Priority
-import com.yaish.naggy.domain.model.RecurrencePattern
 import com.yaish.naggy.domain.model.Task
-import com.yaish.naggy.domain.model.TaskStatus
-import kotlinx.coroutines.launch
+import com.yaish.naggy.ui.components.*
+import com.yaish.naggy.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskListScreen(
     onAddTask: () -> Unit,
     onEditTask: (Long) -> Unit,
     onCalendarClick: () -> Unit,
     onDashboardClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
     onBackup: () -> Unit = {},
     onRestore: () -> Unit = {},
     viewModel: TaskListViewModel = hiltViewModel()
 ) {
     val categorizedTasks by viewModel.categorizedTasks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val lastBackupTime by viewModel.lastBackupTime.collectAsState()
     val userData by viewModel.userData.collectAsState()
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
     val isVibrationEnabled by viewModel.isVibrationEnabled.collectAsState()
-    val sortOption by viewModel.sortOption.collectAsState()
-    val filterState by viewModel.filterState.collectAsState()
-    val availableTags by viewModel.availableTags.collectAsState()
+    val lastBackupTime by viewModel.lastBackupTime.collectAsState()
 
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-    var showFilterSheet by remember { mutableStateOf(false) }
-    var showSortMenu by remember { mutableStateOf(false) }
+    var showUserDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showBackupDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        viewModel.onTriggerBackup = onBackup
-    }
+    // Dock items in requested order: (dashboard, calender, + , backup, history)
+    // Note: User said "instead of the settings button in the menu, add a history button"
+    val dockItems = listOf(
+        DockItem("Dashboard", Icons.Default.GridView),
+        DockItem("Calendar", Icons.Default.CalendarToday),
+        DockItem("Add", Icons.Default.Add), // At index 2 (middle of 5)
+        DockItem("Backup", Icons.Default.CloudQueue),
+        DockItem("History", Icons.Default.Check) // History button (nice V sign)
+    )
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                Column(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(24.dp)
-                ) {
-                    // App Logo in Drawer
-                    Image(
-                        painter = painterResource(id = R.mipmap.naggy_logo),
-                        contentDescription = "App Logo",
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text(
-                        text = "User Details",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    userData?.let { user ->
-                        Text(text = user.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                        Text(text = user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } ?: Text(text = "Not signed in", style = MaterialTheme.typography.bodyLarge)
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = "Backup Info",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    val formattedTime = if (lastBackupTime > 0) {
-                        SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault()).format(Date(lastBackupTime))
-                    } else {
-                        "Never"
-                    }
-                    Text(text = "Last auto backup: $formattedTime", style = MaterialTheme.typography.bodyMedium)
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    NavigationDrawerItem(
-                        label = { Text("Productivity Dashboard") },
-                        selected = false,
-                        onClick = {
-                            onDashboardClick()
-                            scope.launch { drawerState.close() }
-                        },
-                        icon = { Icon(Icons.Default.TrendingUp, contentDescription = null) }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    NavigationDrawerItem(
-                        label = { Text(stringResource(R.string.calendar_view)) },
-                        selected = false,
-                        onClick = {
-                            onCalendarClick()
-                            scope.launch { drawerState.close() }
-                        },
-                        icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    NavigationDrawerItem(
-                        label = { Text(if (isVibrationEnabled) "Vibration: ON" else "Vibration: OFF") },
-                        selected = false,
-                        onClick = {
-                            viewModel.setVibrationEnabled(!isVibrationEnabled)
-                        },
-                        icon = { 
-                            Icon(
-                                imageVector = if (isVibrationEnabled) Icons.Default.Vibration else Icons.Default.NotificationsOff, 
-                                contentDescription = null,
-                                tint = if (isVibrationEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            ) 
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val isDark = isDarkTheme ?: androidx.compose.foundation.isSystemInDarkTheme()
-                    NavigationDrawerItem(
-                        label = { Text(if (isDark) "Light Mode" else "Dark Mode") },
-                        selected = false,
-                        onClick = {
-                            viewModel.setDarkTheme(!isDark)
-                            scope.launch { drawerState.close() }
-                        },
-                        icon = { 
-                            Icon(
-                                imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode, 
-                                contentDescription = null
-                            ) 
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    Button(
-                        onClick = {
-                            onBackup()
-                            scope.launch { drawerState.close() }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Backup, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Manual Backup")
-                    }
-                    
-                    OutlinedButton(
-                        onClick = {
-                            onRestore()
-                            scope.launch { drawerState.close() }
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                    ) {
-                        Icon(Icons.Default.CloudDownload, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Restore")
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            MinimalistTopBar(
+                userName = userData?.name ?: "User",
+                onProfileClick = { showUserDialog = true },
+                onSettingsClick = { showSettingsDialog = true }
+            )
+        },
+        bottomBar = {
+            MinimalistDock(
+                items = dockItems,
+                selectedItem = -1,
+                onItemClick = { index ->
+                    when (index) {
+                        0 -> onDashboardClick()
+                        1 -> onCalendarClick()
+                        2 -> onAddTask()
+                        3 -> showBackupDialog = true
+                        4 -> onHistoryClick()
                     }
                 }
-            }
+            )
         }
-    ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.task_list_title)) },
-                    actions = {
-                        IconButton(onClick = { showSortMenu = true }) {
-                            Icon(Icons.Default.Sort, contentDescription = "Sort")
-                            DropdownMenu(
-                                expanded = showSortMenu,
-                                onDismissRequest = { showSortMenu = false }
-                            ) {
-                                for (option in TaskSortOption.values()) {
-                                    DropdownMenuItem(
-                                        text = { Text(option.displayName) },
-                                        onClick = {
-                                            viewModel.updateSortOption(option)
-                                            showSortMenu = false
-                                        },
-                                        leadingIcon = {
-                                            if (sortOption == option) {
-                                                Icon(Icons.Default.CheckCircle, contentDescription = null)
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        IconButton(onClick = { showFilterSheet = true }) {
-                            val isFiltered = filterState.priority != null || filterState.tags.isNotEmpty()
-                            BadgedBox(
-                                badge = {
-                                    if (isFiltered) {
-                                        Badge { Text("!") }
-                                    }
-                                }
-                            ) {
-                                Icon(Icons.Default.FilterList, contentDescription = "Filter")
-                            }
-                        }
-                        IconButton(onClick = {
-                            scope.launch { drawerState.open() }
-                        }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = onAddTask,
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(R.string.add_task)
-                    )
-                }
-            }
-        ) { paddingValues ->
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             if (isLoading && categorizedTasks.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            } else if (categorizedTasks.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.no_tasks),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Removed COMPLETED category from categorizedTasks in ViewModel already,
+                    // but ensuring it's not in categoriesToShow here for UI consistency.
                     val categoriesToShow = listOf(
                         TaskCategory.OVERDUE,
                         TaskCategory.TODAY,
                         TaskCategory.THIS_WEEK,
                         TaskCategory.THIS_MONTH,
-                        TaskCategory.LATER,
-                        TaskCategory.COMPLETED
+                        TaskCategory.LATER
                     )
 
                     categoriesToShow.forEach { category ->
@@ -326,12 +117,11 @@ fun TaskListScreen(
                         if (tasksInCategory.isNotEmpty()) {
                             item(key = category.name) {
                                 Text(
-                                    text = category.displayName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (category == TaskCategory.OVERDUE) MaterialTheme.colorScheme.error 
-                                            else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(vertical = 8.dp)
+                                    text = category.displayName.uppercase(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (category == TaskCategory.OVERDUE) Color(0xFFFF5252) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                                    letterSpacing = 1.5.sp
                                 )
                             }
                             
@@ -345,118 +135,106 @@ fun TaskListScreen(
                             }
                         }
                     }
+                    
+                    item { Spacer(modifier = Modifier.height(100.dp)) }
                 }
             }
-        }
-
-        if (showFilterSheet) {
-            FilterBottomSheet(
-                filterState = filterState,
-                availableTags = availableTags,
-                onUpdatePriority = { viewModel.updateFilterPriority(it) },
-                onToggleTag = { viewModel.toggleFilterTag(it) },
-                onClearAll = { viewModel.clearFilters() },
-                onDismiss = { showFilterSheet = false }
-            )
         }
     }
-}
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-fun FilterBottomSheet(
-    filterState: TaskFilterState,
-    availableTags: List<String>,
-    onUpdatePriority: (Priority?) -> Unit,
-    onToggleTag: (String) -> Unit,
-    onClearAll: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState()
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+    if (showUserDialog) {
+        MinimalistDialog(
+            title = "USER ACCOUNT",
+            onDismiss = { showUserDialog = false }
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Filters",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                TextButton(onClick = onClearAll) {
-                    Text("Clear All")
-                }
-            }
-
-            // Priority Filter
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Priority",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    for (priority in Priority.values()) {
-                        FilterChip(
-                            selected = filterState.priority == priority,
-                            onClick = { 
-                                if (filterState.priority == priority) onUpdatePriority(null)
-                                else onUpdatePriority(priority)
-                            },
-                            label = { Text(priority.name) }
-                        )
-                    }
-                }
-            }
-
-            // Tags Filter
-            if (availableTags.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Tags",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            userData?.let { user ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        modifier = Modifier.size(60.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     ) {
-                        availableTags.forEach { tag ->
-                            FilterChip(
-                                selected = filterState.tags.contains(tag),
-                                onClick = { onToggleTag(tag) },
-                                label = { Text(tag) }
-                            )
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(user.name.take(1).uppercase(), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
                         }
                     }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(user.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+                        Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-            }
+            } ?: Text("Not signed in", color = MaterialTheme.colorScheme.onBackground)
+        }
+    }
 
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Show Results")
+    if (showSettingsDialog) {
+        MinimalistDialog(
+            title = "SETTINGS",
+            onDismiss = { showSettingsDialog = false }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                val isDark = isDarkTheme ?: isSystemInDarkTheme()
+                SettingsToggleItem(
+                    label = "Dark Mode",
+                    checked = isDark,
+                    onCheckedChange = { viewModel.setDarkTheme(it) },
+                    icon = if (isDark) Icons.Default.DarkMode else Icons.Default.LightMode
+                )
+                
+                SettingsToggleItem(
+                    label = "Haptic Vibration",
+                    checked = isVibrationEnabled,
+                    onCheckedChange = { viewModel.setVibrationEnabled(it) },
+                    icon = Icons.Default.Vibration
+                )
+            }
+        }
+    }
+
+    if (showBackupDialog) {
+        MinimalistDialog(
+            title = "DATA MANAGEMENT",
+            onDismiss = { showBackupDialog = false }
+        ) {
+            val onBg = MaterialTheme.colorScheme.onBackground
+            val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Last Backup: ${if (lastBackupTime > 0) SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(lastBackupTime)) else "Never"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = onSurfaceVariant
+                )
+                
+                Button(
+                    onClick = { onBackup(); showBackupDialog = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.CloudUpload, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("BACKUP NOW", fontWeight = FontWeight.Bold)
+                }
+
+                OutlinedButton(
+                    onClick = { onRestore(); showBackupDialog = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, onBg.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.CloudDownload, contentDescription = null, tint = onBg)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("RESTORE DATA", color = onBg)
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TaskItem(
     task: Task,
@@ -465,225 +243,155 @@ fun TaskItem(
     onEdit: () -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(false) }
-    val status = task.getStatus()
-    val statusColor = when (status) {
-        TaskStatus.UPCOMING -> Color(0xFF4CAF50)
-        TaskStatus.OVERDUE -> Color(0xFFF44336)
-        TaskStatus.COMPLETED -> Color(0xFF9E9E9E)
+    val onBg = MaterialTheme.colorScheme.onBackground
+    val primary = MaterialTheme.colorScheme.primary
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    
+    val accentColor = when (task.priority) {
+        Priority.HIGH -> Color(0xFFFF5252)
+        Priority.MEDIUM -> Color(0xFFFFAB40)
+        Priority.LOW -> primary
+        else -> Color.Transparent
     }
 
-    val statusText = when (status) {
-        TaskStatus.UPCOMING -> stringResource(R.string.status_upcoming)
-        TaskStatus.OVERDUE -> stringResource(R.string.status_overdue)
-        TaskStatus.COMPLETED -> stringResource(R.string.status_completed)
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize()
-            .clickable { isExpanded = !isExpanded },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+    GlassCard(
+        borderColor = if (task.isCompleted) onBg.copy(alpha = 0.05f) else accentColor.copy(alpha = 0.2f),
+        onClick = { isExpanded = !isExpanded }
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                onClick = onToggleComplete,
+                modifier = Modifier.size(24.dp),
+                shape = CircleShape,
+                color = if (task.isCompleted) primary else Color.Transparent,
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, if (task.isCompleted) primary else onBg.copy(alpha = 0.2f))
             ) {
-                // Completion checkbox
-                IconButton(
-                    onClick = { 
-                        onToggleComplete()
-                    },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = if (task.isCompleted) {
-                            Icons.Filled.CheckCircle
-                        } else {
-                            Icons.Outlined.Circle
-                        },
-                        contentDescription = stringResource(R.string.mark_complete),
-                        tint = if (task.isCompleted) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Task summary details
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (task.priority != Priority.NONE) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        when (task.priority) {
-                                            Priority.HIGH -> Color.Red
-                                            Priority.MEDIUM -> Color(0xFFFFA500) // Orange
-                                            Priority.LOW -> Color.Blue
-                                            else -> Color.Transparent
-                                        }
-                                    )
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                        }
-                        
-                        Text(
-                            text = task.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            textDecoration = if (task.isCompleted) {
-                                TextDecoration.LineThrough
-                            } else {
-                                null
-                            }
-                        )
-                        
-                        if (task.recurrencePattern != RecurrencePattern.NONE) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.Default.Sync,
-                                contentDescription = "Recurring",
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                if (task.isCompleted) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
                     }
-
-                    Text(
-                        text = task.getFormattedDeadline(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    if (task.tags.isNotEmpty()) {
-                        FlowRow(
-                            modifier = Modifier.padding(top = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            task.tags.forEach { tag ->
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            color = MaterialTheme.colorScheme.secondaryContainer,
-                                            shape = RoundedCornerShape(4.dp)
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = tag,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Status badge
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = statusColor.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
 
-            // Countdown display at the bottom of the summary
-            if (!task.isCompleted) {
-                Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = task.getTimeUntilDeadline(),
+                    text = task.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
+                    ),
+                    color = if (task.isCompleted) onBg.copy(alpha = 0.3f) else onBg
+                )
+                Text(
+                    text = task.getFormattedDeadline(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (status == TaskStatus.OVERDUE) MaterialTheme.colorScheme.error 
-                            else MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(start = 44.dp) // Align with text after checkbox
+                    color = onSurfaceVariant
                 )
             }
 
-            // Expanded content
-            AnimatedVisibility(visible = isExpanded) {
-                Column(
+            if (task.priority != Priority.NONE && !task.isCompleted) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                ) {
-                    if (task.description.isNotBlank()) {
-                        Text(
-                            text = "Description:",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = task.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                        .size(width = 30.dp, height = 4.dp)
+                        .clip(CircleShape)
+                        .background(accentColor)
+                )
+            }
+        }
 
-                    Text(
-                        text = "Reminder details:",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Notifies ${task.reminderLeadTimeMinutes / 60}h ${task.reminderLeadTimeMinutes % 60}m before, at ${task.reminderTimeOfDay}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    
+        AnimatedVisibility(visible = isExpanded) {
+            Column(modifier = Modifier.padding(top = 16.dp)) {
+                if (task.description.isNotBlank()) {
+                    Text(task.description, style = MaterialTheme.typography.bodyMedium, color = onBg.copy(alpha = 0.7f))
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        // Edit button
-                        TextButton(onClick = onEdit) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Edit")
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Delete button
-                        TextButton(
-                            onClick = onDelete,
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Delete")
-                        }
-                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null, tint = onBg.copy(alpha = 0.4f)) }
+                    IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = Color(0xFFFF5252).copy(alpha = 0.6f)) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun MinimalistDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, letterSpacing = 2.sp)
+                Spacer(modifier = Modifier.height(24.dp))
+                content()
+                Spacer(modifier = Modifier.height(24.dp))
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                    Text("CLOSE", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsToggleItem(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    val onBg = MaterialTheme.colorScheme.onBackground
+    val primary = MaterialTheme.colorScheme.primary
+    
+    Surface(
+        onClick = { onCheckedChange(!checked) },
+        shape = RoundedCornerShape(16.dp),
+        color = onBg.copy(alpha = 0.05f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon, 
+                    contentDescription = null, 
+                    tint = if (checked) primary else onBg.copy(alpha = 0.4f), 
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = label, 
+                    color = onBg, 
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = primary,
+                    uncheckedThumbColor = onBg.copy(alpha = 0.4f),
+                    uncheckedTrackColor = onBg.copy(alpha = 0.1f),
+                    uncheckedBorderColor = onBg.copy(alpha = 0.2f)
+                )
+            )
         }
     }
 }

@@ -10,12 +10,14 @@ import com.yaish.naggy.domain.model.Task
 import com.yaish.naggy.presentation.addedittask.AddEditTaskScreen
 import com.yaish.naggy.presentation.calendar.CalendarScreen
 import com.yaish.naggy.presentation.dashboard.DashboardScreen
+import com.yaish.naggy.presentation.history.HistoryScreen
 import com.yaish.naggy.presentation.tasklist.TaskListScreen
 
 sealed class Screen(val route: String) {
     object TaskList : Screen("task_list")
     object Calendar : Screen("calendar")
     object Dashboard : Screen("dashboard")
+    object History : Screen("history")
     object AddEditTask : Screen("add_edit_task?taskId={taskId}") {
         fun createRoute(taskId: Long? = null) = if (taskId != null) "add_edit_task?taskId=$taskId" else "add_edit_task"
     }
@@ -46,8 +48,19 @@ fun NavGraph(
                 onDashboardClick = {
                     navController.navigate(Screen.Dashboard.route)
                 },
+                onHistoryClick = {
+                    navController.navigate(Screen.History.route)
+                },
                 onBackup = onBackup,
                 onRestore = onRestore
+            )
+        }
+
+        composable(Screen.History.route) {
+            HistoryScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
             )
         }
 

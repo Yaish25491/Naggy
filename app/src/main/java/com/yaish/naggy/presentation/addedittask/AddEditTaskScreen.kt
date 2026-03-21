@@ -2,35 +2,45 @@ package com.yaish.naggy.presentation.addedittask
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yaish.naggy.R
 import com.yaish.naggy.domain.model.Priority
 import com.yaish.naggy.domain.model.RecurrencePattern
+import com.yaish.naggy.domain.model.Task
+import com.yaish.naggy.ui.components.*
+import com.yaish.naggy.ui.theme.*
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-import com.yaish.naggy.domain.model.Task
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTaskScreen(
     taskId: Long? = null,
@@ -49,360 +59,210 @@ fun AddEditTaskScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.onTriggerBackup = onBackup
-    }
-
-    // Show error snackbar
-    val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(uiState.errorMessage) {
-        uiState.errorMessage?.let { message ->
-            snackbarHostState.showSnackbar(message)
-            viewModel.clearError()
-        }
-    }
-
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { 
                     Text(
-                        if (taskId == null) stringResource(R.string.add_task_title) 
-                        else stringResource(R.string.edit_task_title)
+                        if (taskId == null) "NEW TASK" else "EDIT TASK",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 2.sp
+                        )
                     ) 
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                actions = {
+                    TextButton(
+                        onClick = {
+                            viewModel.saveTask { savedTask ->
+                                if (syncToCalendar) {
+                                    onSyncToCalendar(savedTask)
+                                }
+                                onNavigateBack()
+                            }
+                        },
+                        enabled = !uiState.isLoading
+                    ) {
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+                        } else {
+                            Text("SAVE", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(20.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
-            // Title
-            OutlinedTextField(
-                value = uiState.title,
-                onValueChange = { viewModel.updateTitle(it) },
-                label = { Text(stringResource(R.string.task_title)) },
-                placeholder = { Text(stringResource(R.string.task_title_hint)) },
-                isError = uiState.titleError != null,
-                supportingText = uiState.titleError?.let { { Text(it) } },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            // Description
-            OutlinedTextField(
-                value = uiState.description,
-                onValueChange = { viewModel.updateDescription(it) },
-                label = { Text(stringResource(R.string.task_description)) },
-                placeholder = { Text(stringResource(R.string.task_description_hint)) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 5
-            )
-
-            // Priority
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Task Info
+            GlassCard {
                 Text(
-                    text = "Priority",
-                    style = MaterialTheme.typography.titleSmall,
+                    text = "TASK DETAILS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TextField(
+                    value = uiState.title,
+                    onValueChange = { viewModel.updateTitle(it) },
+                    placeholder = { Text("Enter title...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                
+                TextField(
+                    value = uiState.description,
+                    onValueChange = { viewModel.updateDescription(it) },
+                    placeholder = { Text("Add notes...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    ),
+                    minLines = 2
+                )
+            }
+
+            // Priority Selection
+            Column {
+                Text(
+                    text = "PRIORITY LEVEL",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     for (priority in Priority.values()) {
-                        FilterChip(
-                            selected = uiState.priority == priority,
-                            onClick = { viewModel.updatePriority(priority) },
-                            label = { Text(priority.name) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = when (priority) {
-                                    Priority.HIGH -> MaterialTheme.colorScheme.errorContainer
-                                    Priority.MEDIUM -> MaterialTheme.colorScheme.primaryContainer
-                                    Priority.LOW -> MaterialTheme.colorScheme.secondaryContainer
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                }
+                        val isSelected = uiState.priority == priority
+                        val color = when (priority) {
+                            Priority.HIGH -> Color(0xFFFF5252)
+                            Priority.MEDIUM -> Color(0xFFFFAB40)
+                            Priority.LOW -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) color.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+                                .border(0.5.dp, if (isSelected) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                .clickable { viewModel.updatePriority(priority) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = priority.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isSelected) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
-                        )
+                        }
                     }
                 }
             }
 
-            // Tags
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Reminders
+            GlassCard {
                 Text(
-                    text = "Tags",
-                    style = MaterialTheme.typography.titleSmall,
+                    text = "SCHEDULING",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
-                var tagInput by remember { mutableStateOf("") }
+                Spacer(modifier = Modifier.height(16.dp))
                 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = tagInput,
-                        onValueChange = { tagInput = it },
-                        placeholder = { Text("Add tag...") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    IconButton(
-                        onClick = {
-                            if (tagInput.isNotBlank()) {
-                                viewModel.addTag(tagInput.trim())
-                                tagInput = ""
-                            }
-                        }
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add tag")
-                    }
-                }
-                
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    uiState.tags.forEach { tag ->
-                        InputChip(
-                            selected = true,
-                            onClick = { viewModel.removeTag(tag) },
-                            label = { Text(tag) },
-                            trailingIcon = {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Remove tag",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Deadline Date
-            val deadlineText = if (uiState.deadlineTimestamp != null) {
-                val dateTime = LocalDateTime.ofInstant(
-                    Instant.ofEpochMilli(uiState.deadlineTimestamp!!),
-                    ZoneId.systemDefault()
-                )
-                dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' hh:mm a"))
-            } else {
-                "Select deadline"
-            }
-
-            OutlinedTextField(
-                value = deadlineText,
-                onValueChange = {},
-                label = { Text(stringResource(R.string.deadline_date)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
+                SettingsHUDItem(
+                    title = "DEADLINE",
+                    value = if (uiState.deadlineTimestamp != null) {
+                        LocalDateTime.ofInstant(Instant.ofEpochMilli(uiState.deadlineTimestamp!!), ZoneId.systemDefault())
+                            .format(DateTimeFormatter.ofPattern("MMM dd, HH:mm"))
+                    } else "NOT SET",
+                    icon = Icons.Default.Timer,
+                    onClick = {
                         showDateTimePicker(context) { timestamp ->
                             viewModel.updateDeadlineTimestamp(timestamp)
                         }
-                    },
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = MaterialTheme.colorScheme.outline,
-                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-
-            // Reminder Lead Time
-            var expandedLeadTime by remember { mutableStateOf(false) }
-            var showCustomLeadTimeDialog by remember { mutableStateOf(false) }
-            val leadTimeOptions = mapOf(
-                15 to "15 minutes before",
-                30 to "30 minutes before",
-                60 to "1 hour before",
-                120 to "2 hours before",
-                1440 to "1 day before",
-                2880 to "2 days before",
-                10080 to "1 week before"
-            )
-
-            val currentLeadTimeText = leadTimeOptions[uiState.reminderLeadTimeMinutes] 
-                ?: "${uiState.reminderLeadTimeMinutes} minutes before"
-
-            ExposedDropdownMenuBox(
-                expanded = expandedLeadTime,
-                onExpandedChange = { expandedLeadTime = it }
-            ) {
-                OutlinedTextField(
-                    value = currentLeadTimeText,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.reminder_lead_time)) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedLeadTime) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
+                    }
                 )
 
-                ExposedDropdownMenu(
+                var expandedLeadTime by remember { mutableStateOf(false) }
+                SettingsHUDItem(
+                    title = "REMINDER",
+                    value = "${uiState.reminderLeadTimeMinutes}M PRE",
+                    icon = Icons.Default.NotificationsActive,
+                    onClick = { expandedLeadTime = true }
+                )
+                
+                var expandedRecurrence by remember { mutableStateOf(false) }
+                SettingsHUDItem(
+                    title = "RECURRENCE",
+                    value = uiState.recurrencePattern.name,
+                    icon = Icons.Default.Sync,
+                    onClick = { expandedRecurrence = true },
+                    isLast = true
+                )
+
+                DropdownMenu(
                     expanded = expandedLeadTime,
-                    onDismissRequest = { expandedLeadTime = false }
+                    onDismissRequest = { expandedLeadTime = false },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
-                    leadTimeOptions.forEach { (minutes, label) ->
+                    listOf(15, 30, 60, 1440).forEach { mins ->
                         DropdownMenuItem(
-                            text = { Text(label) },
+                            text = { Text("${mins}M BEFORE", color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
-                                viewModel.updateReminderLeadTime(minutes)
+                                viewModel.updateReminderLeadTime(mins)
                                 expandedLeadTime = false
                             }
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text("Custom...") },
-                        onClick = {
-                            expandedLeadTime = false
-                            showCustomLeadTimeDialog = true
-                        }
-                    )
                 }
-            }
 
-            if (showCustomLeadTimeDialog) {
-                var customValue by remember { mutableStateOf("") }
-                var customUnit by remember { mutableStateOf(1) } // 1=min, 60=hour, 1440=day
-                
-                AlertDialog(
-                    onDismissRequest = { showCustomLeadTimeDialog = false },
-                    title = { Text("Custom Lead Time") },
-                    text = {
-                        Column {
-                            OutlinedTextField(
-                                value = customValue,
-                                onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) customValue = it },
-                                label = { Text("Amount") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                FilterChip(
-                                    selected = customUnit == 1,
-                                    onClick = { customUnit = 1 },
-                                    label = { Text("Mins") }
-                                )
-                                FilterChip(
-                                    selected = customUnit == 60,
-                                    onClick = { customUnit = 60 },
-                                    label = { Text("Hours") }
-                                )
-                                FilterChip(
-                                    selected = customUnit == 1440,
-                                    onClick = { customUnit = 1440 },
-                                    label = { Text("Days") }
-                                )
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            val amount = customValue.toIntOrNull() ?: 0
-                            if (amount > 0) {
-                                viewModel.updateReminderLeadTime(amount * customUnit)
-                            }
-                            showCustomLeadTimeDialog = false
-                        }) {
-                            Text("OK")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showCustomLeadTimeDialog = false }) {
-                            Text("Cancel")
-                        }
-                    }
-                )
-            }
-
-            // Reminder Time of Day
-            OutlinedTextField(
-                value = uiState.reminderTimeOfDay,
-                onValueChange = {},
-                label = { Text(stringResource(R.string.reminder_time)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        showTimePicker(context, uiState.reminderTimeOfDay) { time ->
-                            viewModel.updateReminderTimeOfDay(time)
-                        }
-                    },
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = MaterialTheme.colorScheme.outline,
-                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-
-            // Google Calendar Sync Checkbox
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { syncToCalendar = !syncToCalendar }
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Checkbox(
-                    checked = syncToCalendar,
-                    onCheckedChange = { syncToCalendar = it }
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Add to Google Calendar")
-            }
-
-            // Recurrence
-            var expandedRecurrence by remember { mutableStateOf(false) }
-            val recurrenceOptions = RecurrencePattern.values()
-
-            ExposedDropdownMenuBox(
-                expanded = expandedRecurrence,
-                onExpandedChange = { expandedRecurrence = it }
-            ) {
-                OutlinedTextField(
-                    value = uiState.recurrencePattern.name,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Repeat") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRecurrence) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-
-                ExposedDropdownMenu(
+                DropdownMenu(
                     expanded = expandedRecurrence,
-                    onDismissRequest = { expandedRecurrence = false }
+                    onDismissRequest = { expandedRecurrence = false },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
-                    for (pattern in recurrenceOptions) {
+                    for (pattern in RecurrencePattern.values()) {
                         DropdownMenuItem(
-                            text = { Text(pattern.name) },
+                            text = { Text(pattern.name, color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 viewModel.updateRecurrence(pattern)
                                 expandedRecurrence = false
@@ -412,73 +272,69 @@ fun AddEditTaskScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Save button
-            Button(
-                onClick = {
-                    viewModel.saveTask { savedTask ->
-                        if (syncToCalendar) {
-                            onSyncToCalendar(savedTask)
-                        }
-                        onNavigateBack()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
+            // Sync
+            GlassCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CloudSync, null, tint = if (syncToCalendar) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "CALENDAR SYNC",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
                     )
-                } else {
-                    Text(stringResource(R.string.save_task))
+                    Switch(
+                        checked = syncToCalendar,
+                        onCheckedChange = { syncToCalendar = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                        )
+                    )
                 }
             }
+            
+            Spacer(modifier = Modifier.height(100.dp))
+        }
+    }
+}
+
+@Composable
+fun SettingsHUDItem(
+    title: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    isLast: Boolean = false
+) {
+    Column(modifier = Modifier.clickable { onClick() }) {
+        Row(
+            modifier = Modifier.padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), fontSize = 8.sp)
+                Text(text = value.uppercase(), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+        }
+        if (!isLast) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
         }
     }
 }
 
 private fun showDateTimePicker(context: android.content.Context, onSelected: (Long) -> Unit) {
     val calendar = Calendar.getInstance()
-
-    DatePickerDialog(
-        context,
-        { _, year, month, dayOfMonth ->
-            TimePickerDialog(
-                context,
-                { _, hourOfDay, minute ->
-                    val selectedCalendar = Calendar.getInstance().apply {
-                        set(year, month, dayOfMonth, hourOfDay, minute, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }
-                    onSelected(selectedCalendar.timeInMillis)
-                },
-                calendar.get(Calendar.HOUR_OF_DAY),
-                calendar.get(Calendar.MINUTE),
-                true
-            ).show()
-        },
-        calendar.get(Calendar.YEAR),
-        calendar.get(Calendar.MONTH),
-        calendar.get(Calendar.DAY_OF_MONTH)
-    ).show()
-}
-
-private fun showTimePicker(context: android.content.Context, currentTime: String, onSelected: (String) -> Unit) {
-    val timeParts = currentTime.split(":")
-    val hour = timeParts[0].toInt()
-    val minute = timeParts[1].toInt()
-
-    TimePickerDialog(
-        context,
-        { _, selectedHour, selectedMinute ->
-            val formattedTime = String.format("%02d:%02d", selectedHour, selectedMinute)
-            onSelected(formattedTime)
-        },
-        hour,
-        minute,
-        true
-    ).show()
+    DatePickerDialog(context, { _, year, month, dayOfMonth ->
+        TimePickerDialog(context, { _, hourOfDay, minute ->
+            val selectedCalendar = Calendar.getInstance().apply {
+                set(year, month, dayOfMonth, hourOfDay, minute, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            onSelected(selectedCalendar.timeInMillis)
+        }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
+    }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
 }

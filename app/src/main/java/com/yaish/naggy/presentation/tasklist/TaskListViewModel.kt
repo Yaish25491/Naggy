@@ -109,7 +109,8 @@ class TaskListViewModel @Inject constructor(
         val startOfNextWeek = today.plusDays(7)
         val startOfNextMonth = today.plusMonths(1)
 
-        val sortedTasks = tasks.sortedBy { it.deadlineTimestamp }
+        val activeTasks = tasks.filter { !it.isCompleted }
+        val sortedTasks = activeTasks.sortedBy { it.deadlineTimestamp }
         
         return sortedTasks.groupBy { task ->
             val taskDate = Instant.ofEpochMilli(task.deadlineTimestamp)
@@ -117,7 +118,6 @@ class TaskListViewModel @Inject constructor(
                 .toLocalDate()
 
             when {
-                task.isCompleted -> TaskCategory.COMPLETED
                 taskDate.isBefore(today) -> TaskCategory.OVERDUE
                 taskDate == today -> TaskCategory.TODAY
                 taskDate.isBefore(startOfNextWeek) -> TaskCategory.THIS_WEEK

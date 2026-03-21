@@ -8,24 +8,40 @@ import android.os.Vibrator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.NotificationsPaused
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
 import com.yaish.naggy.R
 import com.yaish.naggy.alarm.AlarmScheduler
 import com.yaish.naggy.domain.model.Task
-import com.yaish.naggy.ui.theme.TodoAppTheme
+import com.yaish.naggy.ui.theme.*
 import com.yaish.naggy.data.repository.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -59,10 +75,7 @@ class AlarmActivity : ComponentActivity() {
         }
 
         setContent {
-            val isDarkThemePref by settingsRepository.isDarkTheme.collectAsState(initial = null)
-            val isDarkTheme = isDarkThemePref ?: androidx.compose.foundation.isSystemInDarkTheme()
-
-            TodoAppTheme(darkTheme = isDarkTheme) {
+            TodoAppTheme { // Respects system or manual preference
                 AlarmScreen(
                     viewModel = viewModel,
                     taskId = taskId,
@@ -106,10 +119,20 @@ fun AlarmScreen(
 ) {
     val task by viewModel.task.collectAsState()
     var showSnoozeDialog by remember { mutableStateOf(false) }
+    
+    val infiniteTransition = rememberInfiniteTransition()
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.background
     ) {
         task?.let { currentTask ->
             Column(
@@ -117,130 +140,122 @@ fun AlarmScreen(
                     .fillMaxSize()
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Title
-                Text(
-                    text = stringResource(R.string.reminder_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Task Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                // Header
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(top = 40.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                            .border(1.dp, MaterialTheme.colorScheme.error, CircleShape)
+                            .scale(pulseScale),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(32.dp))
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        text = "CRITICAL REMINDER",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.error,
+                        letterSpacing = 4.sp,
+                        fontWeight = FontWeight.Bold
                     )
+                }
+
+                // Task Content Card
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(32.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                 ) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
+                        modifier = Modifier.padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = currentTask.title,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.sp
+                            ),
                             textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.onSurface
                         )
 
                         if (currentTask.description.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 text = currentTask.description,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Deadline info
-                        val deadlineText = if (System.currentTimeMillis() > currentTask.deadlineTimestamp) {
-                            stringResource(R.string.overdue_by, currentTask.getTimeUntilDeadline())
-                        } else {
-                            stringResource(R.string.due_at, currentTask.getFormattedDeadline())
-                        }
+                        Spacer(modifier = Modifier.height(32.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                        Spacer(modifier = Modifier.height(32.dp))
 
                         Text(
-                            text = deadlineText,
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.Medium
+                            text = "STATUS",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = currentTask.getTimeUntilDeadline().uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.ExtraBold
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(48.dp))
-
-                // Action Buttons
+                // Actions
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Mark Done Button
                     Button(
-                        onClick = {
-                            viewModel.markDone(taskId, onDismiss)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                        onClick = { viewModel.markDone(taskId, onDismiss) },
+                        modifier = Modifier.fillMaxWidth().height(64.dp),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text(
-                            text = stringResource(R.string.mark_done),
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("MARK AS DONE", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                     }
 
-                    // Snooze Button
-                    OutlinedButton(
-                        onClick = { showSnoozeDialog = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.snooze),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        OutlinedButton(
+                            onClick = { showSnoozeDialog = true },
+                            modifier = Modifier.weight(1f).height(56.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Default.NotificationsPaused, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("SNOOZE", fontWeight = FontWeight.Bold)
+                        }
 
-                    // Dismiss Button
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.dismiss),
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        TextButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f).height(56.dp)
+                        ) {
+                            Text("DISMISS", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
 
-            // Snooze Dialog
             if (showSnoozeDialog) {
-                SnoozeDialog(
+                SnoozeMinimalistDialog(
                     onDismiss = { showSnoozeDialog = false },
                     onSnooze = { minutes ->
                         viewModel.snooze(taskId, minutes, onDismiss)
@@ -253,31 +268,29 @@ fun AlarmScreen(
 }
 
 @Composable
-fun SnoozeDialog(
+fun SnoozeMinimalistDialog(
     onDismiss: () -> Unit,
     onSnooze: (Int) -> Unit
 ) {
-    val snoozeOptions = listOf(
-        5 to stringResource(R.string.snooze_5_min),
-        10 to stringResource(R.string.snooze_10_min),
-        15 to stringResource(R.string.snooze_15_min),
-        30 to stringResource(R.string.snooze_30_min)
-    )
+    val options = listOf(5, 10, 15, 30)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.snooze)) },
+        title = { Text("SNOOZE REMINDER", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp) },
         text = {
-            Column {
-                for (option in snoozeOptions) {
-                    TextButton(
-                        onClick = { onSnooze(option.first) },
-                        modifier = Modifier.fillMaxWidth()
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                options.forEach { mins ->
+                    Surface(
+                        onClick = { onSnooze(mins) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                     ) {
                         Text(
-                            text = option.second,
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Start
+                            text = "+$mins MINUTES",
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -285,9 +298,7 @@ fun SnoozeDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
+            TextButton(onClick = onDismiss) { Text("CANCEL", color = MaterialTheme.colorScheme.error) }
         }
     )
 }
