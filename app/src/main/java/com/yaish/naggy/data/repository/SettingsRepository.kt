@@ -26,6 +26,11 @@ class SettingsRepository @Inject constructor(
         val USER_NAME = stringPreferencesKey("user_name")
         val USER_EMAIL = stringPreferencesKey("user_email")
         val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
+        val IS_VIBRATION_ENABLED = booleanPreferencesKey("is_vibration_enabled")
+    }
+
+    val isVibrationEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.IS_VIBRATION_ENABLED] ?: true
     }
 
     val isDarkTheme: Flow<Boolean?> = context.dataStore.data.map { preferences ->
@@ -72,6 +77,12 @@ class SettingsRepository @Inject constructor(
             } else {
                 preferences[PreferencesKeys.IS_DARK_THEME] = isDark
             }
+        }
+    }
+
+    suspend fun setVibrationEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.IS_VIBRATION_ENABLED] = enabled
         }
     }
 }
