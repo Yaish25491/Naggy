@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,6 +67,7 @@ fun TaskListScreen(
     val lastBackupTime by viewModel.lastBackupTime.collectAsState()
     val userData by viewModel.userData.collectAsState()
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+    val isVibrationEnabled by viewModel.isVibrationEnabled.collectAsState()
     val sortOption by viewModel.sortOption.collectAsState()
     val filterState by viewModel.filterState.collectAsState()
     val availableTags by viewModel.availableTags.collectAsState()
@@ -149,6 +152,23 @@ fun TaskListScreen(
                             scope.launch { drawerState.close() }
                         },
                         icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    NavigationDrawerItem(
+                        label = { Text(if (isVibrationEnabled) "Vibration: ON" else "Vibration: OFF") },
+                        selected = false,
+                        onClick = {
+                            viewModel.setVibrationEnabled(!isVibrationEnabled)
+                        },
+                        icon = { 
+                            Icon(
+                                imageVector = if (isVibrationEnabled) Icons.Default.Vibration else Icons.Default.NotificationsOff, 
+                                contentDescription = null,
+                                tint = if (isVibrationEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            ) 
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))

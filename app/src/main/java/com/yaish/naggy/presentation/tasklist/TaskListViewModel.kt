@@ -70,6 +70,9 @@ class TaskListViewModel @Inject constructor(
     val isDarkTheme: StateFlow<Boolean?> = settingsRepository.isDarkTheme
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    val isVibrationEnabled: StateFlow<Boolean> = settingsRepository.isVibrationEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     val userData: StateFlow<UserData?> = settingsRepository.userData
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -82,6 +85,12 @@ class TaskListViewModel @Inject constructor(
     fun setDarkTheme(isDark: Boolean?) {
         viewModelScope.launch {
             settingsRepository.setDarkTheme(isDark)
+        }
+    }
+
+    fun setVibrationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setVibrationEnabled(enabled)
         }
     }
 

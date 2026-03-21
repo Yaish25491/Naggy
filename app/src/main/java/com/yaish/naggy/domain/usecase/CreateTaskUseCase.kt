@@ -17,21 +17,14 @@ class CreateTaskUseCase @Inject constructor(
                 return Result.failure(Exception("Title cannot be empty"))
             }
 
-            if (task.deadlineTimestamp <= System.currentTimeMillis()) {
-                return Result.failure(Exception("Deadline must be in the future"))
-            }
-
             // Calculate reminder timestamp
             val reminderTimestamp = task.calculateReminderTimestamp()
-
-            if (reminderTimestamp <= System.currentTimeMillis()) {
-                return Result.failure(Exception("Reminder time must be in the future"))
-            }
 
             // Insert task into database
             val taskId = taskRepository.insertTask(task)
 
             // Schedule alarm
+            // Even if in the past, AlarmManager will trigger it immediately
             alarmScheduler.schedule(taskId, reminderTimestamp)
 
             Result.success(taskId)

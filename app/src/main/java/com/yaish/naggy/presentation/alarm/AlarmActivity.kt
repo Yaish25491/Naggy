@@ -1,9 +1,15 @@
 package com.yaish.naggy.presentation.alarm
 
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -29,6 +35,7 @@ class AlarmActivity : ComponentActivity() {
     lateinit var settingsRepository: SettingsRepository
 
     private val viewModel: AlarmViewModel by viewModels()
+    private var vibrator: Vibrator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +47,16 @@ class AlarmActivity : ComponentActivity() {
         }
 
         viewModel.loadTask(taskId)
+        
+        lifecycleScope.launch {
+            settingsRepository.isVibrationEnabled.collect { enabled ->
+                if (enabled) {
+                    startVibration()
+                } else {
+                    stopVibration()
+                }
+            }
+        }
 
         setContent {
             val isDarkThemePref by settingsRepository.isDarkTheme.collectAsState(initial = null)
@@ -49,10 +66,34 @@ class AlarmActivity : ComponentActivity() {
                 AlarmScreen(
                     viewModel = viewModel,
                     taskId = taskId,
-                    onDismiss = { finish() }
+                    onDismiss = { 
+                        stopVibration()
+                        finish() 
+                    }
                 )
             }
         }
+    }
+
+    private fun startVibration() {
+        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val timings = longArrayOf(0, 500, 500)
+            val amplitudes = intArrayOf(0, 255, 0)
+            vibrator?.vibrate(VibrationEffect.createWaveform(timings, amplitudes, 0))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(longArrayOf(0, 500, 500), 0)
+        }
+    }
+
+    private fun stopVibration() {
+        vibrator?.cancel()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopVibration()
     }
 }
 
@@ -123,7 +164,7 @@ fun AlarmScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -228,13 +269,13 @@ fun SnoozeDialog(
         title = { Text(stringResource(R.string.snooze)) },
         text = {
             Column {
-                snoozeOptions.forEach { (minutes, label) ->
+                for (option in snoozeOptions) {
                     TextButton(
-                        onClick = { onSnooze(minutes) },
+                        onClick = { onSnooze(option.first) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = label,
+                            text = option.second,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Start
                         )
